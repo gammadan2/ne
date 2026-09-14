@@ -8,7 +8,7 @@ class ModRelax : Mod() {
     override val acronym = "RX"
     override val description = "You don't need to tap. Give your tapping fingers a break from the heat of things."
     override val type = ModType.Automation
-    override val scoreMultiplier = 1.6
+    override val scoreMultiplier = 1.60f
 
     override val incompatibleMods = super.incompatibleMods + arrayOf(
         ModAutoplay::class, ModNoFail::class, ModAutopilot::class
