@@ -1,6 +1,6 @@
 package com.rian.framework
 
-import com.osudroid.math.Interpolation
+import com.rian.osu.math.Interpolation
 
 /**
  * A [RollingCounter] for [Int] values.

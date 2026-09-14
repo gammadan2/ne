@@ -4,21 +4,18 @@ import android.graphics.PointF;
 
 import androidx.annotation.NonNull;
 
-import com.osudroid.beatmaps.hitobjects.sliderobject.SliderHead;
-import com.osudroid.beatmaps.hitobjects.sliderobject.SliderRepeat;
-import com.osudroid.beatmaps.hitobjects.sliderobject.SliderTick;
-import com.osudroid.GameMode;
-import com.osudroid.beatmaps.DroidHitWindow;
-import com.osudroid.beatmaps.IBeatmap;
-import com.osudroid.beatmaps.PreciseDroidHitWindow;
-import com.osudroid.beatmaps.hitobjects.Slider;
-import com.osudroid.beatmaps.hitobjects.sliderobject.*;
-import com.osudroid.mods.LegacyModConverter;
-import com.osudroid.mods.ModHardRock;
-import com.osudroid.mods.ModPrecise;
-import com.osudroid.mods.ModReplayV6;
-import com.osudroid.utils.ModHashMap;
-import com.osudroid.utils.ModUtils;
+import com.rian.osu.GameMode;
+import com.rian.osu.beatmap.DroidHitWindow;
+import com.rian.osu.beatmap.IBeatmap;
+import com.rian.osu.beatmap.PreciseDroidHitWindow;
+import com.rian.osu.beatmap.hitobject.Slider;
+import com.rian.osu.beatmap.hitobject.sliderobject.*;
+import com.rian.osu.mods.LegacyModConverter;
+import com.rian.osu.mods.ModHardRock;
+import com.rian.osu.mods.ModPrecise;
+import com.rian.osu.mods.ModReplayV6;
+import com.rian.osu.utils.ModHashMap;
+import com.rian.osu.utils.ModUtils;
 
 import org.anddev.andengine.util.Debug;
 
@@ -151,7 +148,7 @@ public class Replay {
                     os.writeInt(stat.getHit100());
                     os.writeInt(stat.getHit50());
                     os.writeInt(stat.getMisses());
-                    os.writeInt(stat.getTotalScore());
+                    os.writeInt(stat.getTotalScoreWithMultiplier());
                     os.writeInt(stat.getScoreMaxCombo());
                     os.writeObject(stat.getPlayerName());
                     os.writeObject(stat.getMod().serializeMods());
@@ -234,11 +231,7 @@ public class Replay {
                     stat.setHit100(os.readInt());
                     stat.setHit50(os.readInt());
                     stat.setMisses(os.readInt());
-                    if (version >= 8) {
-                        stat.setTotalScore(os.readInt());
-                    } else {
-                        stat.setForcedScore(os.readInt());
-                    }
+                    stat.setForcedScore(os.readInt());
                     stat.setScoreMaxCombo(os.readInt());
 
                     if (version < 6) {
@@ -457,12 +450,10 @@ public class Replay {
         Version 6: Removed accuracy and perfect, slider ends no longer give combo when not hit
         Version 7: Reworked mod storage to not serialize GameMod, object stacking behavior overhaul, device-independent
                    object scaling
-        Version 8: Slider head hit window is extended to its 50 hit window;
-                   score stored as raw totalScore instead of totalScoreWithMultiplier
      */
     public static class ReplayVersion implements Serializable {
         private static final long serialVersionUID = 4643121693566795335L;
-        int version = 8;
+        int version = 7;
     }
 
     public static class ReplayObjectData {

@@ -3,11 +3,6 @@ package com.osudroid.data
 import android.content.Context
 import android.util.Log
 import androidx.room.*
-import com.osudroid.mods.IModRequiresBeatmapDifficulty
-import com.osudroid.mods.LegacyModConverter
-import com.osudroid.mods.ModReplayV6
-import com.osudroid.utils.ModHashMap
-import com.osudroid.utils.ModUtils
 import com.reco1l.toolkt.data.iterator
 import org.apache.commons.io.FilenameUtils
 import org.json.JSONObject
@@ -17,7 +12,6 @@ import ru.nsu.ccfit.zuev.osuplus.BuildConfig
 import java.io.File
 import java.io.IOException
 import java.io.ObjectInputStream
-import kotlin.math.roundToInt
 import ru.nsu.ccfit.zuev.osu.scoring.Replay
 
 
@@ -194,28 +188,13 @@ object DatabaseManager {
                                     continue
                                 }
 
-                                val legacyModString = it.getString(it.getColumnIndexOrThrow("mode"))
-
-                                val legacyMods = try {
-                                    LegacyModConverter.convert(legacyModString)
-                                } catch (_: Exception) {
-                                    ModHashMap()
-                                }.apply { put(ModReplayV6()) }
-
-                                val legacyScore = it.getInt(it.getColumnIndexOrThrow("score"))
-                                val needsMigration = legacyMods.values.any { mod -> mod is IModRequiresBeatmapDifficulty }
-
-                                val rawScore =
-                                    if (needsMigration) legacyScore
-                                    else (legacyScore / ModUtils.calculateMigrationScoreMultiplier(legacyMods)).roundToInt()
-
                                 scoreInfos += ScoreInfo(
                                     id = id,
                                     beatmapMD5 = replay.md5,
                                     playerName = it.getString(it.getColumnIndexOrThrow("playername")),
                                     replayFilename = FilenameUtils.getName(replayFilePath),
-                                    mods = legacyMods.serializeMods(),
-                                    score = rawScore,
+                                    mods = it.getString(it.getColumnIndexOrThrow("mode")),
+                                    score = it.getInt(it.getColumnIndexOrThrow("score")),
                                     maxCombo = it.getInt(it.getColumnIndexOrThrow("combo")),
                                     mark = it.getString(it.getColumnIndexOrThrow("mark")),
                                     hit300k = it.getInt(it.getColumnIndexOrThrow("h300k")),
@@ -228,8 +207,7 @@ object DatabaseManager {
                                     sliderHeadHits = null,
                                     sliderTickHits = null,
                                     sliderRepeatHits = null,
-                                    sliderEndHits = null,
-                                    needsScoreMigration = needsMigration
+                                    sliderEndHits = null
                                 )
 
                                 pendingScores--
@@ -259,7 +237,7 @@ object DatabaseManager {
 }
 
 @Database(
-    version = 5,
+    version = 4,
     entities = [
         BeatmapInfo::class,
         BeatmapOptions::class,

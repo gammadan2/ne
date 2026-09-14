@@ -3,9 +3,10 @@ package com.osudroid.beatmaps
 import com.osudroid.data.BeatmapInfo
 import com.osudroid.data.BeatmapSetInfo
 import com.reco1l.toolkt.kotlin.fastForEach
-import com.osudroid.beatmaps.parser.BeatmapParser
-import com.osudroid.GameMode
-import com.osudroid.utils.LRUCache
+import com.rian.osu.beatmap.Beatmap
+import com.rian.osu.beatmap.parser.BeatmapParser
+import com.rian.osu.GameMode
+import com.rian.osu.utils.LRUCache
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.locks.ReentrantLock

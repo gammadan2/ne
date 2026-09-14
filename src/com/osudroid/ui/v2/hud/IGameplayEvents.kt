@@ -1,8 +1,7 @@
 package com.osudroid.ui.v2.hud
 
 import android.view.MotionEvent
-import com.osudroid.beatmaps.constants.HitObjectType
-import com.osudroid.beatmaps.hitobjects.HitObject
+import com.rian.osu.beatmap.hitobject.HitObject
 import ru.nsu.ccfit.zuev.osu.game.GameScene
 import ru.nsu.ccfit.zuev.osu.scoring.StatisticV2
 
@@ -23,6 +22,6 @@ interface IGameplayEvents {
 
     fun onBreakStateChange(isBreak: Boolean)
 
-    fun onAccuracyRegister(type: HitObjectType, accuracy: Float)
+    fun onAccuracyRegister(accuracy: Float)
 
 }

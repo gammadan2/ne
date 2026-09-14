@@ -3,6 +3,7 @@ package com.osudroid.ui.v1
 import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
@@ -46,7 +47,6 @@ import com.osudroid.utils.async
 import com.osudroid.utils.mainThread
 import com.reco1l.framework.asTimeInterpolator
 import com.osudroid.multiplayer.Multiplayer
-import com.osudroid.ui.v2.CalibrationScene
 import com.reco1l.osu.ui.InputPreference
 import com.reco1l.osu.ui.Option
 import com.reco1l.osu.ui.SelectPreference
@@ -56,9 +56,9 @@ import com.reco1l.toolkt.android.dp
 import com.reco1l.toolkt.android.drawableLeft
 import com.reco1l.toolkt.android.layoutWidth
 import com.reco1l.toolkt.android.topMargin
-import com.osudroid.mods.ModAutoplay
-import com.osudroid.replay.ReplayImporter
-import com.osudroid.utils.ModHashMap
+import com.rian.osu.mods.ModAutoplay
+import com.rian.osu.replay.ReplayImporter
+import com.rian.osu.utils.ModHashMap
 import java.io.File
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -304,7 +304,7 @@ class SettingsFragment : SettingsFragment() {
 
                 GlobalManager.getInstance().songService.volume = prefs.getInt("bgmvolume", 100) / 100f
 
-                loadSkin(prefs.getString("skinPath", "")!!).invokeOnCompletion {
+                loadSkin(context, prefs.getString("skinPath", "")!!).invokeOnCompletion {
                     mainThread {
                         ToastLogger.showText(string.config_backup_restore_info_success, true)
                         dismiss()
@@ -387,7 +387,7 @@ class SettingsFragment : SettingsFragment() {
             options = skins
 
             setOnPreferenceChangeListener { _, newValue ->
-                loadSkin(newValue.toString())
+                loadSkin(context, newValue.toString())
                 true
             }
         }
@@ -479,17 +479,16 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        val offsetPreference = findPreference<SeekBarPreference>("offset")!!
-
         findPreference<Preference>("offset_calibration")!!.setOnPreferenceClickListener {
-            CalibrationScene.settingsFragment = this
-            CalibrationScene.OFFSET_MIN = offsetPreference.min
-            CalibrationScene.OFFSET_MAX = offsetPreference.max
-            CalibrationScene.show()
-
-            // We only want to dismiss the fragment, not reapply preferences (which is what the override does).
-            super.dismiss()
-
+            val self = this
+            GlobalManager.getInstance().engine.runOnUpdateThread {
+                // When Back or SET is pressed in the calibration scene it will
+                // call this lambda on the main thread, re-opening settings
+                // exactly where the user left off (Audio section).
+                com.osudroid.ui.v2.CalibrationScene.onClosed = { self.show() }
+                com.osudroid.ui.v2.CalibrationScene.show()
+            }
+            dismiss()
             true
         }
     }
@@ -517,12 +516,9 @@ class SettingsFragment : SettingsFragment() {
 
     private fun handleAdvancedSectionPreferences() {
         findPreference<CheckBoxPreference>("forceMaxRefreshRate")!!.apply {
-            isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R
-
-            setOnPreferenceChangeListener { _, newValue ->
-                (requireActivity() as MainActivity).applyRefreshRateSetting(newValue as Boolean)
-                true
-            }
+            // Obtaining supported refresh rates is only available on Android 12 and above.
+            // See https://developer.android.com/reference/android/view/Display.Mode#getAlternativeRefreshRates().
+            isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         }
 
         findPreference<InputPreference>("skinTopPath")!!.setOnPreferenceChangeListener { it, newValue ->
@@ -594,7 +590,7 @@ class SettingsFragment : SettingsFragment() {
             value = Multiplayer.player!!.team?.ordinal?.toString()
 
             setOnPreferenceChangeListener { _, newValue ->
-                RoomAPI.setPlayerTeam(RoomTeam[(newValue as String).toInt()] ?: return@setOnPreferenceChangeListener false)
+                RoomAPI.setPlayerTeam(RoomTeam[(newValue as String).toInt()])
                 true
             }
         }
@@ -668,7 +664,7 @@ class SettingsFragment : SettingsFragment() {
             value = Multiplayer.room!!.teamMode.ordinal.toString()
 
             setOnPreferenceChangeListener { _, newValue ->
-                RoomAPI.setRoomTeamMode(TeamMode[(newValue as String).toInt()] ?: return@setOnPreferenceChangeListener false)
+                RoomAPI.setRoomTeamMode(TeamMode[(newValue as String).toInt()])
                 true
             }
         }
@@ -677,7 +673,7 @@ class SettingsFragment : SettingsFragment() {
             value = Multiplayer.room!!.winCondition.ordinal.toString()
 
             setOnPreferenceChangeListener { _, newValue ->
-                RoomAPI.setRoomWinCondition(WinCondition.from((newValue as String).toInt()) ?: return@setOnPreferenceChangeListener false)
+                RoomAPI.setRoomWinCondition(WinCondition.from((newValue as String).toInt()))
                 true
             }
         }
@@ -693,7 +689,7 @@ class SettingsFragment : SettingsFragment() {
     }
 
 
-    private fun loadSkin(path: String): Job {
+    private fun loadSkin(context: Context, path: String): Job {
         val loading = LoadingFragment()
 
         loading.isDismissOnBackPress = false
@@ -705,10 +701,11 @@ class SettingsFragment : SettingsFragment() {
             // the correct skin path.
             Config.setSkinPath(path)
             ResourceManager.getInstance().loadSkin(path)
-            GlobalManager.getInstance().engine.onResume()
+            GlobalManager.getInstance().engine.textureManager.reloadTextures()
 
             mainThread {
                 loading.dismiss()
+                context.startActivity(Intent(context, MainActivity::class.java))
                 Snackbar.make(requireActivity().window.decorView, string.message_loaded_skin, 1500).show()
             }
         }

@@ -81,9 +81,8 @@ class HUDElementPreview(private val element: HUDElement, val hud: GameplayHUD): 
 
             if (abs(localX - initialX) < 1f && abs(localY - initialY) < 1f) {
                 clearEntityModifiers()
-                beginModifierSequence {
+                beginSequence {
                     scaleTo(0.9f, 0.1f)
-                    then()
                     scaleTo(1f, 0.1f)
                 }
                 hud.addElement(HUDElementSkinData(element::class))

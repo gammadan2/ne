@@ -3,7 +3,7 @@ package com.osudroid.ui.v2
 import com.osudroid.ui.v2.modmenu.*
 import com.reco1l.andengine.component.*
 import com.reco1l.andengine.container.*
-import com.osudroid.mods.*
+import com.rian.osu.mods.*
 
 class ModsIndicator : UILinearContainer() {
 

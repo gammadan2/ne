@@ -159,8 +159,8 @@ open class UISprite(textureRegion: TextureRegion? = null) : UIBufferedComponent<
             val textureWidth = entity.contentWidth
             val textureHeight = entity.contentHeight
 
-            var quadWidth: Float
-            var quadHeight: Float
+            var quadWidth = textureWidth
+            var quadHeight = textureHeight
 
             when (entity.scaleType) {
 
@@ -176,10 +176,7 @@ open class UISprite(textureRegion: TextureRegion? = null) : UIBufferedComponent<
                     quadHeight = textureHeight * scale
                 }
 
-                Stretch -> {
-                    quadWidth = entity.width
-                    quadHeight = entity.height
-                }
+                Stretch -> Unit
             }
 
             val x = (entity.width - quadWidth) * entity.gravity.x

@@ -2,7 +2,6 @@ package com.osudroid.multiplayer
 
 import android.util.Log
 import com.reco1l.toolkt.kotlin.fromDate
-import java.io.BufferedWriter
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.TimeZone
@@ -23,24 +22,19 @@ class MultiplayerLogger : AutoCloseable {
     @Volatile
     private var isClosed = false
 
-    private var writer: BufferedWriter? = null
+    private val writer = File("${Config.getDefaultCorePath()}/Log", "multi_log.txt").apply {
+        parentFile?.mkdirs()
+
+        if (!exists()) {
+            createNewFile()
+        }
+    }.bufferedWriter()
 
     private val timestampFormat = SimpleDateFormat("HH:mm:ss").apply {
         timeZone = TimeZone.getTimeZone("GMT+0")
     }
 
-    /**
-     * Initializes the logger by creating the log file and writing the initial log entry.
-     */
-    fun init() {
-        writer = File("${Config.getDefaultCorePath()}/Log", "multi_log.txt").apply {
-            parentFile?.mkdirs()
-
-            if (!exists()) {
-                createNewFile()
-            }
-        }.bufferedWriter()
-
+    init {
         write("[${"yyyy/MM/dd hh:mm:ss".fromDate()}] Client ${MainActivity.versionName} started.")
     }
 
@@ -87,7 +81,7 @@ class MultiplayerLogger : AutoCloseable {
 
         scope.launch {
             try {
-                writer?.flush()
+                writer.flush()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -101,7 +95,7 @@ class MultiplayerLogger : AutoCloseable {
 
         scope.launch {
             try {
-                writer?.write(str)
+                writer.write(str)
             } catch (ex: Exception) {
                 ex.printStackTrace()
             }
@@ -117,8 +111,8 @@ class MultiplayerLogger : AutoCloseable {
 
         scope.launch {
             try {
-                writer?.flush()
-                writer?.close()
+                writer.flush()
+                writer.close()
             } catch (e: Exception) {
                 e.printStackTrace()
             }

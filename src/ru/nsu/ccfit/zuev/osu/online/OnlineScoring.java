@@ -6,7 +6,7 @@ import android.net.Uri;
 import com.google.android.material.snackbar.Snackbar;
 import com.osudroid.data.BeatmapInfo;
 import com.osudroid.utils.Execution;
-import com.osudroid.ui.SendingPanel;
+import com.rian.osu.ui.SendingPanel;
 
 import org.anddev.andengine.util.Debug;
 
@@ -29,7 +29,7 @@ public class OnlineScoring {
             GlobalManager.getInstance().getMainActivity().getWindow().getDecorView(),
             "", 10000);
 
-    private Job loginJob, profileAssetsJob;
+    private Job loginJob, avatarJob;
 
     public static OnlineScoring getInstance() {
         if (instance == null)
@@ -51,7 +51,7 @@ public class OnlineScoring {
         secondPanel = new OnlinePanel();
         secondPanel.setInfo();
         String avatarURL = OnlineManager.getInstance().getAvatarURL();
-        secondPanel.setProfile(avatarLoaded && !avatarURL.isEmpty() ? avatarURL : null);
+        secondPanel.setAvatar(avatarLoaded && !avatarURL.isEmpty() ? avatarURL : null);
         return secondPanel;
     }
 
@@ -71,12 +71,12 @@ public class OnlineScoring {
             secondPanel.setInfo();
     }
 
-    public void updatePanelProfiles() {
+    public void updatePanelAvatars() {
         final String avatarUrl = OnlineManager.getInstance().getAvatarURL();
-        String avatarTexName = avatarLoaded && !avatarUrl.isEmpty() ? avatarUrl : null;
-        panel.setProfile(avatarTexName);
+        String texname = avatarLoaded && !avatarUrl.isEmpty() ? avatarUrl : null;
+        panel.setAvatar(texname);
         if (secondPanel != null)
-            secondPanel.setProfile(avatarTexName);
+            secondPanel.setAvatar(texname);
     }
 
     public void login() {
@@ -112,9 +112,9 @@ public class OnlineScoring {
                     break;
                 }
                 if (success) {
-                    Execution.updateThread(this::updatePanels);
+                    updatePanels();
                     OnlineManager.getInstance().setStayOnline(true);
-                    loadProfileAssets(true);
+                    loadAvatar(true);
                 } else {
                     setPanelMessage("Cannot log in", OnlineManager.getInstance().getFailMessage());
                     OnlineManager.getInstance().setStayOnline(false);
@@ -167,7 +167,7 @@ public class OnlineScoring {
                         if (OnlineManager.getInstance().getFailMessage().equals("Invalid record data"))
                             i = attemptCount;
                     } else if (success) {
-                        Execution.updateThread(this::updatePanels);
+                        updatePanels();
                         OnlineManager mgr = OnlineManager.getInstance();
                         panel.show(mgr.getMapRank(), mgr.getRank(), mgr.getScore(), mgr.getAccuracy(), mgr.getPP());
                         break;
@@ -186,34 +186,24 @@ public class OnlineScoring {
         });
     }
 
-    public void loadProfileAssets(final boolean both) {
+    public void loadAvatar(final boolean both) {
         if (!OnlineManager.getInstance().isStayOnline()) return;
         final String avatarUrl = OnlineManager.getInstance().getAvatarURL();
-        final String profileBannerUrl = OnlineManager.getInstance().getProfileBannerURL();
-        if ((avatarUrl == null || avatarUrl.isEmpty())
-                && (profileBannerUrl == null || profileBannerUrl.isEmpty()))
+        if (avatarUrl == null || avatarUrl.length() == 0)
             return;
 
-        if (profileAssetsJob != null) {
-            profileAssetsJob.cancel(new CancellationException("Profile asset loading cancelled"));
+        if (avatarJob != null) {
+            avatarJob.cancel(new CancellationException("Avatar loading cancelled"));
         }
 
-        profileAssetsJob = Execution.async((scope) -> {
+        avatarJob = Execution.async((scope) -> {
             synchronized (onlineMutex) {
-                avatarLoaded = avatarUrl != null
-                        && !avatarUrl.isEmpty()
-                        && OnlineManager.getInstance().loadAvatarToTextureManager();
-                if (profileBannerUrl != null && !profileBannerUrl.isEmpty()) {
-                    OnlineManager.getInstance().loadProfileBannerToTextureManager();
-                }
+                avatarLoaded = OnlineManager.getInstance().loadAvatarToTextureManager();
                 JobKt.ensureActive(scope.getCoroutineContext());
-
-                Execution.updateThread(() -> {
-                    if (both)
-                        updatePanelProfiles();
-                    else if (secondPanel != null)
-                        secondPanel.setProfile(avatarLoaded ? avatarUrl : null);
-                });
+                if (both)
+                    updatePanelAvatars();
+                else if (secondPanel != null)
+                    secondPanel.setAvatar(avatarLoaded ? avatarUrl : null);
             }
         });
     }

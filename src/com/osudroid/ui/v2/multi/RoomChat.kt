@@ -6,21 +6,21 @@ import com.osudroid.multiplayer.*
 import com.osudroid.multiplayer.api.*
 import com.osudroid.multiplayer.api.data.*
 import com.osudroid.utils.*
-import com.osudroid.resources.R
 import com.reco1l.andengine.*
 import com.reco1l.andengine.buffered.*
 import com.reco1l.andengine.component.*
 import com.reco1l.andengine.container.*
+import com.reco1l.andengine.modifier.*
 import com.reco1l.andengine.shape.*
 import com.reco1l.andengine.sprite.UISprite
 import com.reco1l.andengine.text.*
 import com.reco1l.andengine.ui.*
 import com.reco1l.framework.*
 import com.reco1l.framework.math.*
-import com.rian.andengine.modifier.ModifierType
 import org.anddev.andengine.input.touch.*
 import ru.nsu.ccfit.zuev.osu.*
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
+import ru.nsu.ccfit.zuev.osuplus.R
 import java.util.LinkedList
 
 /**
@@ -74,6 +74,9 @@ class RoomChat : UILinearContainer() {
         get() = UIEngine.current.overlay
 
     init {
+        // At any given time, there should be only one chat instance in the overlay.
+        // Two or more instances of these can present after a player successfully reconnects.
+        overlay.detachChildren { it is RoomChat }
 
         // Force the main container to fill the entire screen so that the chat can be closed by
         // tapping outside of it (see onAreaTouched).
@@ -191,26 +194,18 @@ class RoomChat : UILinearContainer() {
         if (!isExpanded) {
             isExpanded = true
             body.apply {
-                clearModifiers(ModifierType.Height)
-                heightTo(body_height, 0.4f, Easing.OutExpo)
+                clearModifiers(ModifierType.SizeY)
+                sizeToY(body_height, 0.4f).eased(Easing.OutExpo)
             }
         }
     }
 
-    @JvmOverloads
-    fun collapse(immediate: Boolean = false) {
+    fun collapse() {
         if (isExpanded) {
             isExpanded = false
-            input.blur()
-
             body.apply {
-                clearModifiers(ModifierType.Height)
-
-                if (immediate) {
-                    height = 0f
-                } else {
-                    heightTo(0f, 0.4f, Easing.OutExpo)
-                }
+                clearModifiers(ModifierType.SizeY)
+                sizeToY(0f, 0.4f).eased(Easing.OutExpo)
             }
         }
     }
@@ -236,9 +231,6 @@ class RoomChat : UILinearContainer() {
         )
     }
 
-    override fun onDetached() {
-        collapse(true)
-    }
 
     override fun onManagedUpdate(deltaTimeSec: Float) {
 
@@ -304,7 +296,6 @@ class RoomChat : UILinearContainer() {
 
             linearContainer {
                 width = FillParent
-                height = FillParent
                 orientation = Orientation.Horizontal
 
                 tagText = text {
@@ -316,8 +307,6 @@ class RoomChat : UILinearContainer() {
 
                 messageText = text {
                     width = FillParent
-                    height = FillParent
-                    clipToBounds = true
                     anchor = Anchor.CenterLeft
                     origin = Anchor.CenterLeft
                     applyTheme = { color = it.accentColor }
@@ -340,7 +329,7 @@ class RoomChat : UILinearContainer() {
                     text = "${if (lastMessage is PlayerMessage) lastMessage.player.name else StringTable.get(R.string.multiplayer_room_chat_system)}: "
                     color = if (lastMessage is PlayerMessage) getPlayerTagColor(lastMessage.player) else Theme.current.accentColor
                 }
-                messageText.text = lastMessage.content.substringBefore('\n')
+                messageText.text = lastMessage.content
             }
         }
 

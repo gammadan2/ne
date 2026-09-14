@@ -4,8 +4,7 @@ import android.graphics.PointF;
 
 import com.osudroid.game.Cursor;
 import com.reco1l.framework.Color4;
-import com.osudroid.beatmaps.constants.HitObjectType;
-import com.osudroid.game.GameplayHitSampleInfo;
+import com.rian.osu.gameplay.GameplayHitSampleInfo;
 
 import java.util.BitSet;
 import java.util.List;
@@ -27,13 +26,15 @@ public interface GameObjectListener {
 
     void addObject(GameObject object);
 
+    void removeObject(GameObject object);
+
     boolean isObjectHittable(GameObject object);
 
     Cursor getCursor(int index);
 
     int getCursorsCount();
 
-    void registerAccuracy(HitObjectType type, double acc);
+    void registerAccuracy(double acc);
     
     void updateAutoBasedPos(float pX, float pY);
 
@@ -42,15 +43,4 @@ public interface GameObjectListener {
     void onUpdatedAutoCursor(float pX, float pY);
 
     void playHitSamples(List<GameplayHitSampleInfo> samples);
-
-    /**
-     * The current elapsed time relative to the start of the beatmap, in seconds.
-     */
-    float getElapsedTime();
-
-    /**
-     * Whether the game has recently seeked and active objects are still in the catch-up frames.
-     * Used to suppress hitsounds for slider objects (head, ticks, repeats) that were already passed at the seek target.
-     */
-    boolean isAfterSeek();
 }

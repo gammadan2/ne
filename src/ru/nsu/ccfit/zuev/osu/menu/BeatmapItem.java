@@ -108,11 +108,7 @@ public class BeatmapItem extends Sprite {
         if (beatmapInfo == null) {
             return;
         }
-
-        var table = DatabaseManager.getScoreInfoTable();
-        table.migrateScores(beatmapInfo.getMD5(), beatmapInfo.getBeatmapDifficulty());
-        var newmark = table.getBestMark(beatmapInfo.getMD5(), beatmapInfo.getBeatmapDifficulty());
-
+        var newmark = DatabaseManager.getScoreInfoTable().getBestMark(beatmapInfo.getMD5());
         if (currentMark != null && currentMark.equals(newmark)) {
             return;
         }

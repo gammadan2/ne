@@ -1,12 +1,7 @@
 package ru.nsu.ccfit.zuev.skins;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
-import com.osudroid.ui.skinning.BooleanSkinData;
-import com.osudroid.ui.skinning.ColorSkinData;
-import com.osudroid.ui.skinning.FloatSkinData;
-import com.osudroid.ui.skinning.StringSkinData;
 import com.osudroid.ui.v2.hud.HUDSkinData;
 import com.reco1l.framework.Color4;
 import com.reco1l.framework.HexComposition;
@@ -28,7 +23,7 @@ public class OsuSkin {
     protected final FloatSkinData sliderBodyWidth = new FloatSkinData("sliderBodyWidth", 61f);
     protected final FloatSkinData sliderBorderWidth = new FloatSkinData("sliderBorderWidth", 5.2f);
     protected final FloatSkinData sliderBodyBaseAlpha = new FloatSkinData("sliderBodyBaseAlpha", 0.7f);
-    protected final FloatSkinData sliderHintAlpha = new FloatSkinData("sliderHintAlpha", 0.3f);
+    protected final FloatSkinData sliderHintAlpha = new FloatSkinData("sliderHintAlpha");
     protected final FloatSkinData sliderHintShowMinLength = new FloatSkinData("sliderHintShowMinLength", 300f);
     protected final FloatSkinData hitCircleOverlap = new FloatSkinData("hitCircleOverlap", -2);
 
@@ -47,9 +42,9 @@ public class OsuSkin {
     protected final String DEFAULT_COLOR_HEX = "#FFFFFF";
     protected final ArrayList<Color4> comboColor = new ArrayList<>();
 
-    protected final ColorSkinData sliderBorderColor = new ColorSkinData("sliderBorderColor", null);
-    protected final ColorSkinData sliderBodyColor = new ColorSkinData("sliderBodyColor", null);
-    protected final ColorSkinData sliderHintColor = new ColorSkinData("sliderHintColor", new Color4(DEFAULT_COLOR_HEX, HexComposition.RRGGBB));
+    protected final ColorSkinData sliderBorderColor = new ColorSkinData("sliderBorderColor", DEFAULT_COLOR_HEX);
+    protected final ColorSkinData sliderBodyColor = new ColorSkinData("sliderBodyColor", DEFAULT_COLOR_HEX);
+    protected final ColorSkinData sliderHintColor = new ColorSkinData("sliderHintColor", DEFAULT_COLOR_HEX);
 
     protected final StringSkinData hitCirclePrefix = new StringSkinData("hitCirclePrefix", "default");
     protected final StringSkinData scorePrefix = new StringSkinData("scorePrefix", "score");
@@ -103,7 +98,6 @@ public class OsuSkin {
         return sliderHintWidth.getCurrentValue();
     }
 
-    @Nullable
     public Color4 getSliderHintColor() {
         return sliderHintColor.getCurrentValue();
     }
@@ -144,10 +138,9 @@ public class OsuSkin {
     }
 
     public boolean isForceOverrideSliderBorderColor() {
-        return !sliderBorderColor.isDefault();
+        return !sliderBorderColor.currentIsDefault();
     }
 
-    @Nullable
     public Color4 getSliderBorderColor() {
         return sliderBorderColor.getCurrentValue();
     }
@@ -156,7 +149,6 @@ public class OsuSkin {
         return sliderFollowComboColor.getCurrentValue();
     }
 
-    @Nullable
     public Color4 getSliderBodyColor() {
         return sliderBodyColor.getCurrentValue();
     }

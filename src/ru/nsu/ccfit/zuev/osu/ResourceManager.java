@@ -9,7 +9,6 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.util.Log;
 
-import com.osudroid.ui.skinning.StringSkinData;
 import com.osudroid.ui.skinning.IniReader;
 import com.osudroid.ui.skinning.SkinConverter;
 import com.reco1l.andengine.UIEngine;
@@ -48,6 +47,7 @@ import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
 import ru.nsu.ccfit.zuev.skins.OsuSkin;
 import ru.nsu.ccfit.zuev.skins.SkinJsonReader;
 import ru.nsu.ccfit.zuev.skins.BeatmapSkinManager;
+import ru.nsu.ccfit.zuev.skins.StringSkinData;
 
 public class ResourceManager {
 
@@ -147,7 +147,6 @@ public class ResourceManager {
 
         loadCustomSkin(folder);
 
-        loadTexture("defaultapproachcircle", "gfx/approachcircle.png", false);
         loadTexture("ranking_enabled_score", "ranking_enabled_score.png", false);
         loadTexture("ranking_enabled_pp", "ranking_enabled_pp.png", false);
         loadTexture("ranking_disabled", "ranking_disabled.png", false);
@@ -301,15 +300,13 @@ public class ResourceManager {
 
             for (int i = 0; i < 10; i++) {
                 String textureName = "comboburst-" + i;
-                if (availableFiles.containsKey(textureName)) {
+                if (availableFiles.containsKey(textureName)) { // No idea if this is still needed
                     File file = availableFiles.get(textureName);
                     if (file != null) {
                         loadTexture(textureName, file.getPath(), true);
                     } else {
                         unloadTexture(textureName);
                     }
-                } else {
-                    unloadTexture(textureName);
                 }
             }
 
@@ -629,14 +626,6 @@ public class ResourceManager {
         }
 
         return region;
-    }
-
-    public TextureRegion getProfileBannerTextureIfLoaded(final String bannerURL) {
-        if (bannerURL == null || bannerURL.length() == 0) {
-            return null;
-        }
-
-        return getTextureIfLoaded(MD5Calculator.getStringMD5(bannerURL));
     }
 
     public TextureRegion getTextureIfLoaded(final String resname) {

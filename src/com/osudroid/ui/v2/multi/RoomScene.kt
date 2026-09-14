@@ -1,7 +1,6 @@
 package com.osudroid.ui.v2.multi
 
 import com.osudroid.BuildSettings
-import java.util.concurrent.atomic.AtomicBoolean
 import com.osudroid.beatmaplisting.BeatmapDownloader
 import com.osudroid.beatmaplisting.BeatmapListing
 import com.osudroid.multiplayer.Multiplayer
@@ -23,16 +22,13 @@ import com.osudroid.ui.v2.GameLoaderScene
 import com.osudroid.ui.v2.ModsIndicator
 import com.osudroid.ui.v2.modmenu.ModMenu
 import com.osudroid.utils.async
-import com.osudroid.utils.mainThread
 import com.osudroid.utils.updateThread
-import com.osudroid.resources.R
 import com.reco1l.andengine.Anchor
 import com.reco1l.andengine.Axes
 import com.reco1l.andengine.UIEngine
 import com.reco1l.andengine.UIScene
 import com.reco1l.andengine.badge
 import com.reco1l.andengine.component.UIComponent.Companion.FillParent
-import com.reco1l.andengine.component.forEach
 import com.reco1l.andengine.component.setText
 import com.reco1l.andengine.container
 import com.reco1l.andengine.container.JustifyContent
@@ -58,42 +54,38 @@ import com.reco1l.framework.Color4
 import com.reco1l.framework.math.Vec4
 import com.reco1l.osu.ui.MessageDialog
 import com.reco1l.toolkt.kotlin.runSafe
-import com.osudroid.mods.ModScoreV2
+import com.rian.osu.mods.ModScoreV2
 import org.json.JSONArray
-import ru.nsu.ccfit.zuev.audio.Status
 import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osu.GlobalManager
 import ru.nsu.ccfit.zuev.osu.LibraryManager
 import ru.nsu.ccfit.zuev.osu.ResourceManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
+import ru.nsu.ccfit.zuev.osuplus.R
 
-class RoomScene(
+class RoomScene(val room: Room) : UIScene(), IRoomEventListener, IPlayerEventListener {
+
     /**
-     * The [Room] this [RoomScene] is showing. Updated in-place when the socket reconnects so that this [RoomScene] can
-     * be reused and update its current state accordingly.
-     */
-    var room: Room
-) : UIScene(), IRoomEventListener, IPlayerEventListener {
-    /**
-     * Indicates that the host can change beatmap. **This must be `false` when waiting for a beatmap change request**.
+     * Indicates that the host can change beatmap (it should be false while a change request was done)
      *
      * This is only used if [com.osudroid.multiplayer.Multiplayer.player] is the room host.
      */
     @JvmField
-    val isWaitingForBeatmapChange = AtomicBoolean(false)
+    var isWaitingForBeatmapChange = false
 
     /**
-     * Indicates that the player can change its status. Its purpose is to await for server changes.
+     * Indicates that the player can change its status, its purpose is to await server changes.
      */
     @JvmField
-    val isWaitingForStatusChange = AtomicBoolean(false)
+    var isWaitingForStatusChange = false
 
     /**
-     * Indicates that the player can change its mods. Its purpose is to await for server changes.
+     * Indicates that the player can change its mods, its purpose is to await server changes.
      */
     @JvmField
-    val isWaitingForModsChange = AtomicBoolean(false)
+    var isWaitingForModsChange = false
+
 
     /**
      * The room chat.
@@ -393,7 +385,7 @@ class RoomScene(
                     isSelected = true
                     onActionUp = callback@{
 
-                        if (isWaitingForStatusChange.get() || !Multiplayer.isRoomHost || Multiplayer.player?.status != PlayerStatus.Ready) {
+                        if (isWaitingForStatusChange || !Multiplayer.isRoomHost || Multiplayer.player!!.status != PlayerStatus.Ready) {
                             return@callback
                         }
 
@@ -431,33 +423,25 @@ class RoomScene(
                     setText(R.string.multiplayer_room_not_ready)
                     onActionUp = callback@{
 
-                        // Atomic guard: only the first tap wins even if two ACTION_UP events
-                        // are delivered before the server reply clears the flag.
-                        if (!isWaitingForStatusChange.compareAndSet(false, true)) {
+                        if (isWaitingForStatusChange) {
                             return@callback
                         }
 
                         ResourceManager.getInstance().getSound("menuclick")?.play()
+                        isWaitingForStatusChange = true
 
-                        // Guard: if back() nulled player between the isWaitingForStatusChange check
-                        // and here, reset the flag and exit instead of crashing.
-                        val player = Multiplayer.player ?: run {
-                            isWaitingForStatusChange.set(false)
-                            return@callback
-                        }
-
-                        when (player.status) {
+                        when (Multiplayer.player!!.status) {
 
                             PlayerStatus.NotReady -> {
                                 if (room.beatmap == null) {
                                     ToastLogger.showText(R.string.multiplayer_room_cannot_ready_changing_beatmap, true)
-                                    isWaitingForStatusChange.set(false)
+                                    isWaitingForStatusChange = false
                                     return@callback
                                 }
 
-                                if (room.teamMode == TeamMode.TeamVersus && player.team == null) {
+                                if (room.teamMode == TeamMode.TeamVersus && Multiplayer.player!!.team == null) {
                                     ToastLogger.showText(R.string.multiplayer_room_cannot_ready_no_team, true)
-                                    isWaitingForStatusChange.set(false)
+                                    isWaitingForStatusChange = false
                                     return@callback
                                 }
 
@@ -468,10 +452,10 @@ class RoomScene(
 
                             PlayerStatus.MissingBeatmap -> {
                                 ToastLogger.showText(R.string.multiplayer_room_cannot_ready_missing_beatmap, true)
-                                isWaitingForStatusChange.set(false)
+                                isWaitingForStatusChange = false
                             }
 
-                            else -> isWaitingForStatusChange.set(false) /*This case can never happen, the PLAYING status is set when a game starts*/
+                            else -> isWaitingForStatusChange = false /*This case can never happen, the PLAYING status is set when a game starts*/
                         }
                     }
                     statusButton = this
@@ -521,56 +505,55 @@ class RoomScene(
         modsIndicator.mods = room.mods.values
     }
 
-    fun updatePlayerList() = updateThread {
+    fun updatePlayerList() {
+
         val shouldReload = currentPlayers.size != room.playersMap.size
-                || !currentPlayers.all { room.playersMap.containsKey(it) }
+            || !currentPlayers.all { room.playersMap.containsKey(it) }
 
-        playersContainer.apply {
+        updateThread {
+            playersContainer.apply {
 
-            if (shouldReload) {
-                detachChildren()
+                if (shouldReload) {
+                    detachChildren()
 
-                room.activePlayers.forEach {
-                    +RoomPlayerCard().apply {
-                        updateState(room, it)
+                    room.activePlayers.forEach {
+                        +RoomPlayerCard().apply {
+                            updateState(room, it)
+                        }
                     }
-                }
-                currentPlayers = room.playersMap.keys.toLongArray()
-            } else {
-                room.activePlayers.forEachIndexed { index, player ->
-                    val card = getChild(index) as RoomPlayerCard
-                    card.updateState(room, player)
+                    currentPlayers = room.playersMap.keys.toLongArray()
+                } else {
+                    room.activePlayers.forEachIndexed { index, player ->
+                        val card = getChild(index) as RoomPlayerCard
+                        card.updateState(room, player)
+                    }
                 }
             }
         }
     }
 
     private fun updateButtons() {
-        // Guard: player is nulled by back() when the scene is tearing down; any
-        // concurrent call (socket EventThread or update thread) must exit cleanly.
-        val player = Multiplayer.player ?: return
-
         statusButton.apply {
             setText(
-                when (player.status) {
+                when (Multiplayer.player!!.status) {
                     PlayerStatus.NotReady -> R.string.multiplayer_room_ready
                     PlayerStatus.Ready -> R.string.multiplayer_room_not_ready
                     else -> R.string.multiplayer_room_unable_status
                 }
             )
 
-            isEnabled = when (player.status) {
+            isEnabled = when (Multiplayer.player!!.status) {
                 PlayerStatus.Ready, PlayerStatus.NotReady -> true
                 else -> false
             }
 
-            isSelected = player.status == PlayerStatus.NotReady
+            isSelected = Multiplayer.player!!.status == PlayerStatus.NotReady
         }
 
         val playersReady = room.activePlayers.filter { it.status == PlayerStatus.Ready }
 
         startButton.apply {
-            isVisible = Multiplayer.isRoomHost && player.status == PlayerStatus.Ready
+            isVisible = Multiplayer.isRoomHost && Multiplayer.player!!.status == PlayerStatus.Ready
 
             // isVisible does only hide the button, but we also need to disable it.
             isEnabled = isVisible
@@ -613,10 +596,10 @@ class RoomScene(
         beatmapInfoLayout.isVisible = true
         beatmapInfoAlert.isVisible = false
 
-        updateBeatmapInfo(roomBeatmap)
+        val beatmapInfo = GlobalManager.getInstance().selectedBeatmap
+        beatmapInfoLayout.setBeatmapInfo(beatmapInfo)
 
         downloadBeatmapButton.apply {
-            val beatmapInfo = GlobalManager.getInstance().selectedBeatmap
 
             if (beatmapInfo == null) {
                 isVisible = true
@@ -654,15 +637,8 @@ class RoomScene(
         }
     }
 
-    @JvmOverloads
-    fun updateBeatmapInfo(roomBeatmap: RoomBeatmap? = room.beatmap) {
-        val beatmapInfo = GlobalManager.getInstance().selectedBeatmap
-
-        if (beatmapInfo != null) {
-            beatmapInfoLayout.setBeatmapInfo(beatmapInfo)
-        } else {
-            beatmapInfoLayout.setBeatmapInfo(roomBeatmap)
-        }
+    fun updateBeatmapInfo() {
+        beatmapInfoLayout.setBeatmapInfo(GlobalManager.getInstance().selectedBeatmap)
     }
 
 
@@ -676,10 +652,7 @@ class RoomScene(
             return
         }
 
-        // Guard: player is nulled by back(); if we race past the reconnecting check, exit cleanly.
-        val player = Multiplayer.player ?: return
-
-        isWaitingForStatusChange.set(true)
+        isWaitingForStatusChange = true
 
         var newStatus = PlayerStatus.NotReady
 
@@ -687,34 +660,17 @@ class RoomScene(
             newStatus = PlayerStatus.MissingBeatmap
         }
 
-        if (player.status != newStatus) {
+        if (Multiplayer.player!!.status != newStatus) {
             RoomAPI.setPlayerStatus(newStatus)
         } else {
-            isWaitingForStatusChange.set(false)
+            isWaitingForStatusChange = false
         }
     }
 
     // Navigation
 
-    /**
-     * Tears down all multiplayer state: cancels reconnection, nulls event listeners,
-     * disconnects the socket, cancels pending jobs, and hides the chat.
-     *
-     * This is the common teardown path shared by [back] (which also navigates to the lobby)
-     * and the kicked-during-game handler (which must NOT navigate since the game scene must
-     * be allowed to finish).
-     *
-     * **Must be called on the update thread.**
-     */
-    private fun teardownSession() {
-        Multiplayer.cancelReconnection()
-        beatmapInfoLayout.cancelCalculation()
-        playersContainer.forEach { (it as RoomPlayerCard).cancelJobs() }
-
-        // Null out event listeners before disconnect so any queued socket events that
-        // arrive after teardown find no listener to call.
-        RoomAPI.roomEventListener = null
-        RoomAPI.playerEventListener = null
+    override fun back() {
+        Multiplayer.isReconnecting = false
 
         runSafe { RoomAPI.disconnect() }
 
@@ -722,10 +678,7 @@ class RoomScene(
         Multiplayer.roomScene = null
         Multiplayer.player = null
         chat.hide()
-    }
 
-    override fun back() {
-        teardownSession()
         UIEngine.current.scene = LobbyScene()
     }
 
@@ -737,54 +690,28 @@ class RoomScene(
 
         GlobalManager.getInstance().engine.scene = this
 
-        if (!isWaitingForBeatmapChange.get()) {
-            // onRoomBeatmapChange sets engine.scene = this just above, so it will always
-            // find the scene active and call invalidateStatus() internally.  Do NOT call
-            // invalidateStatus() again afterwards — that would emit a redundant
-            // setPlayerStatus to the server (SI-4).
+        if (!isWaitingForBeatmapChange) {
             onRoomBeatmapChange(room.beatmap)
         }
-        // When isWaitingForBeatmapChange == true a beatmap change is already in flight.
-        // Emitting a status now would race the imminent onRoomBeatmapChange callback that
-        // will call invalidateStatus() with the correct beatmap context.
 
+        invalidateStatus()
         chat.show()
-    }
-
-    override fun onManagedUpdate(deltaTimeSec: Float) {
-        val selectedBeatmap = GlobalManager.getInstance().selectedBeatmap
-
-        if (selectedBeatmap != null) {
-            val songService = GlobalManager.getInstance().songService
-
-            if (songService.status == Status.STOPPED) {
-                songService.preLoad(selectedBeatmap.audioPath)
-                songService.play()
-            }
-        }
-
-        super.onManagedUpdate(deltaTimeSec)
     }
 
 
     // Communication
 
     override fun onServerError(error: String) {
-        mainThread { ToastLogger.showText(error, true) }
+        ToastLogger.showText(error, true)
     }
 
     override fun onRoomChatMessage(uid: Long?, message: String) {
 
         if (uid != null) {
-            // Look up the sender. If they are not yet in playersMap the most likely cause is
-            // that chatMessage arrived on the EventThread just before the playerJoined event
-            // that was queued right behind it (EH-3). Rather than silently discarding the
-            // message, build a temporary stub player so the text is displayed in the chat log.
-            // The stub uses "#uid" as its name; once playerJoined fires, any subsequent
-            // messages from that player will show their real username.
+
             val player = room.playersMap[uid] ?: run {
-                Multiplayer.log("WARNING: chatMessage from unknown UID $uid — displaying with stub name")
-                RoomPlayer(id = uid, name = "#$uid", rank = 0, status = PlayerStatus.NotReady, team = null, mods = RoomMods())
+                Multiplayer.log("WARNING: Unable to find user by ID on chat message")
+                return
             }
 
             if (!player.isMuted) {
@@ -808,7 +735,7 @@ class RoomScene(
         ModMenu.clear()
         ModMenu.setMods(newRoom.mods, newRoom.gameplaySettings.isFreeMod)
 
-        isWaitingForModsChange.set(true)
+        isWaitingForModsChange = true
 
         RoomAPI.setPlayerMods(ModMenu.enabledMods.serializeMods())
 
@@ -820,25 +747,19 @@ class RoomScene(
 
             Multiplayer.onReconnectAttempt(true)
 
-            val player = Multiplayer.player ?: return
-
-            // If the server reports Playing, the match started while the player was disconnected.
-            if (player.status == PlayerStatus.Playing && GlobalManager.getInstance().selectedBeatmap != null) {
-                onRoomMatchPlay()
-            } else {
-                // Always re-sync status after reconnection so that the isWaitingForStatusChange lock
-                // (set in onRoomDisconnect) is cleared and the player can toggle ready again.
-                invalidateStatus()
+            // If the status returned by server is PLAYING then it means the match was forced to start while the player
+            // was disconnected.
+            if (Multiplayer.player!!.status == PlayerStatus.Playing) {
+                // Handling special case when the beatmap could have been changed and match was started while player was
+                // disconnected.
+                if (GlobalManager.getInstance().selectedBeatmap != null) {
+                    onRoomMatchPlay()
+                } else {
+                    invalidateStatus()
+                }
             }
-
             return
         }
-
-        val beatmapInfo = LibraryManager.findBeatmapByMD5(newRoom.beatmap?.md5)
-        GlobalManager.getInstance().selectedBeatmap = beatmapInfo
-
-        updateBackground(beatmapInfo?.backgroundPath)
-        updateBeatmap(newRoom.beatmap)
 
         show()
     }
@@ -847,24 +768,16 @@ class RoomScene(
 
         if (!byUser) {
             // Setting await locks to avoid player emitting events that will be ignored.
-            isWaitingForBeatmapChange.set(true)
-            isWaitingForStatusChange.set(true)
-            isWaitingForModsChange.set(true)
+            isWaitingForBeatmapChange = true
+            isWaitingForStatusChange = true
+            isWaitingForModsChange = true
 
-            if (Multiplayer.isReconnecting) {
-                // A reconnection-attempt socket dropped before receiving initialConnection.
-                // Fail the current attempt so the loop retries immediately rather than staying
-                // stuck in the isWaitingAttemptResponse polling branch until the 30s timeout.
-                Multiplayer.onReconnectAttempt(false)
-            } else {
-                chat.onSystemChatMessage(StringTable.get(R.string.multiplayer_room_reconnecting), "#FFBFBF")
-                Multiplayer.onReconnect()
-            }
-
+            chat.onSystemChatMessage(StringTable.get(R.string.multiplayer_room_reconnecting), "#FFBFBF")
+            Multiplayer.onReconnect()
             return
         }
 
-        updateThread { back() }
+        back()
     }
 
     override fun onRoomConnectFail(error: String?) {
@@ -875,7 +788,7 @@ class RoomScene(
             return
         }
 
-        updateThread { back() }
+        back()
     }
 
 
@@ -883,20 +796,14 @@ class RoomScene(
 
     override fun onRoomNameChange(name: String) {
         room.name = name
-        updateThread { updateInformation() }
+        updateInformation()
     }
 
     override fun onRoomMaxPlayersChange(maxPlayers: Int) {
-        // The server caps maxPlayers to the current amount of players in the lobby.
-        // If the server sends back the current maxPlayers value, we don't need to update anything.
-        if (maxPlayers == room.maxPlayers) {
-            return
-        }
-
         room.maxPlayers = maxPlayers
-        room.resizePlayers(maxPlayers)
+        room.players = room.players.copyOf(maxPlayers)
 
-        updateThread { updateInformation() }
+        updateInformation()
         updatePlayerList()
     }
 
@@ -906,32 +813,31 @@ class RoomScene(
 
         GlobalManager.getInstance().selectedBeatmap = LibraryManager.findBeatmapByMD5(beatmap?.md5)
 
+        beatmapInfoLayout.setBeatmapInfo(GlobalManager.getInstance().selectedBeatmap)
+
         if (GlobalManager.getInstance().engine.scene != this) {
-            updateThread { updateBeatmapInfo() }
-            isWaitingForBeatmapChange.set(false)
+            isWaitingForBeatmapChange = false
             return
         }
 
         // Notify to the host when other players can't download the beatmap.
         if (Multiplayer.isRoomHost && beatmap != null && beatmap.parentSetID == null) {
-            mainThread { ToastLogger.showText(R.string.multiplayer_room_beatmap_unavailable, false) }
+            ToastLogger.showText(R.string.multiplayer_room_beatmap_unavailable, false)
         }
 
         invalidateStatus()
-        isWaitingForBeatmapChange.set(false)
 
-        val selectedBeatmap = GlobalManager.getInstance().selectedBeatmap
-        updateThread {
-            updateBackground(selectedBeatmap?.backgroundPath)
-            updateBeatmap(beatmap)
-        }
+        updateBackground(GlobalManager.getInstance().selectedBeatmap?.backgroundPath)
+        updateBeatmap(beatmap)
 
-        if (selectedBeatmap == null) {
+        isWaitingForBeatmapChange = false
+
+        if (GlobalManager.getInstance().selectedBeatmap == null) {
             GlobalManager.getInstance().songService.stop()
             return
         }
 
-        GlobalManager.getInstance().songService.preLoad(selectedBeatmap.audioPath)
+        GlobalManager.getInstance().songService.preLoad(GlobalManager.getInstance().selectedBeatmap!!.audioPath)
         GlobalManager.getInstance().songService.play()
     }
 
@@ -939,17 +845,16 @@ class RoomScene(
 
         room.host = uid
 
-        val newHostName = room.playersMap[uid]?.name ?: "#$uid"
-        chat.onSystemChatMessage(StringTable.format(R.string.multiplayer_room_new_host, newHostName), "#459FFF")
+        chat.onSystemChatMessage(StringTable.format(R.string.multiplayer_room_new_host, room.playersMap[uid]?.name.toString()), "#459FFF")
 
         updateThread {
             ModMenu.back(false)
             ModMenu.updateModButtonVisibility()
             ModMenu.updateCustomizationMenuEnabledStates()
-            updateButtons()
         }
 
         updatePlayerList()
+        updateButtons()
     }
 
 
@@ -957,22 +862,19 @@ class RoomScene(
 
     override fun onRoomModsChange(mods: RoomMods) {
 
-        if (!mods.equalsWithContext(room.mods, room.gameplaySettings.isFreeMod)) {
+        if (mods != room.mods) {
             invalidateStatus()
         }
 
         room.mods = mods
 
-        isWaitingForModsChange.set(true)
+        ModMenu.setMods(mods, room.gameplaySettings.isFreeMod)
 
-        updateThread {
-            // Apply the new room mods to ModMenu first so that enabledMods is up-to-date
-            // before we serialize and emit to the server.  Serializing before setMods() runs
-            // would send the previous (stale) mods payload to the server.
-            ModMenu.setMods(mods, room.gameplaySettings.isFreeMod)
-            RoomAPI.setPlayerMods(ModMenu.enabledMods.serializeMods())
-            updateInformation()
-        }
+        isWaitingForModsChange = true
+
+        RoomAPI.setPlayerMods(ModMenu.enabledMods.serializeMods())
+
+        updateInformation()
     }
 
     override fun onRoomGameplaySettingsChange(settings: RoomGameplaySettings) {
@@ -980,13 +882,13 @@ class RoomScene(
 
         room.gameplaySettings = settings
 
+        updateButtons()
+        updateInformation()
         updatePlayerList()
 
-        isWaitingForModsChange.set(true)
+        isWaitingForModsChange = true
 
         updateThread {
-            updateButtons()
-            updateInformation()
             ModMenu.back(false)
 
             if (wasFreeMod != settings.isFreeMod) {
@@ -1000,18 +902,13 @@ class RoomScene(
     /**This method is used purely to update UI in other clients*/
     override fun onPlayerModsChange(uid: Long, mods: RoomMods) {
 
-        val target = room.playersMap[uid] ?: run {
-            Multiplayer.log("WARNING: onPlayerModsChange — unknown uid $uid, player may have already left")
-            return
-        }
-        target.mods = mods
+        room.playersMap[uid]!!.mods = mods
 
         updatePlayerList()
 
-        val player = Multiplayer.player ?: return
-        if (uid == player.id) {
-            isWaitingForModsChange.set(false)
-            updateThread { updateBeatmapInfo() }
+        if (uid == Multiplayer.player!!.id) {
+            isWaitingForModsChange = false
+            updateBeatmapInfo()
         }
     }
 
@@ -1019,10 +916,10 @@ class RoomScene(
 
         room.teamMode = mode
 
-        updateThread { updateInformation() }
+        updateInformation()
         updatePlayerList()
 
-        isWaitingForStatusChange.set(true)
+        isWaitingForStatusChange = true
         invalidateStatus()
     }
 
@@ -1030,10 +927,10 @@ class RoomScene(
 
         room.winCondition = winCondition
 
-        updateThread { updateInformation() }
+        updateInformation()
 
         if (Multiplayer.isRoomHost) {
-            isWaitingForModsChange.set(true)
+            isWaitingForModsChange = true
 
             // If win condition is Score V2 we add the mod.
             val roomMods = room.mods.apply {
@@ -1056,42 +953,27 @@ class RoomScene(
 
     override fun onRoomMatchPlay() {
 
-        val player = Multiplayer.player ?: return
+        val global = GlobalManager.getInstance()
 
-        if (player.status == PlayerStatus.MissingBeatmap) {
-            // This client does not have the beatmap and will never call startGame(), so
-            // GameScene.onGameLoad() will never fire and notifyBeatmapLoaded() would never be
-            // sent.  The server waits for every client's beatmapLoadComplete before sending
-            // allPlayersBeatmapLoadComplete, so one missing-beatmap client would block the
-            // match for everyone (EH-5).  Send the ACK immediately so the server can proceed
-            // once all other players have loaded.
-            Multiplayer.log("INFO: MissingBeatmap — sending immediate beatmapLoadComplete ACK (EH-5)")
-            RoomAPI.notifyBeatmapLoaded()
-        }
+        if (Multiplayer.player!!.status != PlayerStatus.MissingBeatmap && global.engine.scene != global.gameScene.scene) {
 
-        updateThread {
-            val global = GlobalManager.getInstance()
-            if (player.status != PlayerStatus.MissingBeatmap && global.engine.scene != global.gameScene.scene) {
-
-                if (global.selectedBeatmap == null) {
-                    Multiplayer.log("WARNING: Attempt to start match with null track.")
-                    return@updateThread
-                }
-
-                global.songMenu.stopMusic()
-                global.gameScene.startGame(global.selectedBeatmap, null, ModMenu.enabledMods)
-
+            if (GlobalManager.getInstance().selectedBeatmap == null) {
+                Multiplayer.log("WARNING: Attempt to start match with null track.")
+                return
             }
+
+            global.songMenu.stopMusic()
+            global.gameScene.startGame(global.selectedBeatmap, null, ModMenu.enabledMods)
+
         }
 
         updatePlayerList()
     }
 
     override fun onRoomMatchStart() {
-        updateThread {
-            if (GlobalManager.getInstance().engine.scene is GameLoaderScene) {
-                GlobalManager.getInstance().gameScene.isReadyToStart = true
-            }
+
+        if (GlobalManager.getInstance().engine.scene is GameLoaderScene) {
+            GlobalManager.getInstance().gameScene.isReadyToStart = true
         }
 
         updatePlayerList()
@@ -1099,13 +981,11 @@ class RoomScene(
 
     override fun onRoomMatchSkip() {
 
-        updateThread {
-            if (GlobalManager.getInstance().engine.scene != GlobalManager.getInstance().gameScene.scene) {
-                return@updateThread
-            }
-
-            GlobalManager.getInstance().gameScene.skip()
+        if (GlobalManager.getInstance().engine.scene != GlobalManager.getInstance().gameScene.scene) {
+            return
         }
+
+        GlobalManager.getInstance().gameScene.skip()
     }
 
 
@@ -1119,6 +999,7 @@ class RoomScene(
         Multiplayer.onFinalLeaderboard(leaderboard)
     }
 
+
     // Player related events
 
     override fun onPlayerJoin(player: RoomPlayer) {
@@ -1128,7 +1009,7 @@ class RoomScene(
             chat.onSystemChatMessage(StringTable.format(R.string.multiplayer_room_player_joined, player.name, player.id), "#459FFF")
         }
 
-        updateThread { updateInformation() }
+        updateInformation()
         updatePlayerList()
     }
 
@@ -1140,89 +1021,63 @@ class RoomScene(
             chat.onSystemChatMessage(StringTable.format(R.string.multiplayer_room_player_left, player.name, player.id), "#459FFF")
         }
 
-        updateThread { updateInformation() }
+        updateInformation()
         updatePlayerList()
     }
 
     override fun onPlayerKick(uid: Long) {
 
-        val player = Multiplayer.player ?: return
-
-        if (uid == player.id) {
+        if (uid == Multiplayer.player!!.id) {
 
             Multiplayer.log("Kicked from room.")
 
-            updateThread {
-                if (GlobalManager.getInstance().engine.scene == GlobalManager.getInstance().gameScene.scene) {
-                    // Kicked while a game is in progress. We cannot navigate away from the
-                    // game scene immediately — doing so would abruptly interrupt gameplay.
-                    // Instead:
-                    //   1. Show the toast so the player knows why they were kicked.
-                    //   2. Tear down all multiplayer state (disconnect socket, null globals,
-                    //      cancel coroutines, hide chat) so live-score events stop firing.
-                    //   3. Clear isMultiplayer so the scoring scene and GameScene treat the
-                    //      remainder of the game as a solo session — submitFinalScore() will
-                    //      not be called, and ScoringScene.back() will return to SongMenu
-                    //      rather than trying to re-enter the (now-disconnected) room.
-                    ToastLogger.showText(R.string.multiplayer_room_kicked_gameplay, true)
-                    teardownSession()
-                    Multiplayer.isMultiplayer = false
-
-                    return@updateThread
-                }
-
-                back()
-
-                UIMessageDialog().apply dialog@{
-                    title = StringTable.get(R.string.multiplayer_room_kicked_title)
-                    text = StringTable.get(R.string.multiplayer_room_kicked_message)
-
-                    addButton {
-                        setText(R.string.multiplayer_room_kicked_close)
-                        onActionUp = { this@dialog.hide() }
-                    }
-                }.show()
+            if (GlobalManager.getInstance().engine.scene == GlobalManager.getInstance().gameScene.scene) {
+                ToastLogger.showText(R.string.multiplayer_room_kicked_gameplay, true)
+                return
             }
+
+            back()
+
+            UIMessageDialog().apply dialog@{
+                title = StringTable.get(R.string.multiplayer_room_kicked_title)
+                text = StringTable.get(R.string.multiplayer_room_kicked_message)
+
+                addButton {
+                    setText(R.string.multiplayer_room_kicked_close)
+                    onActionUp = { this@dialog.hide() }
+                }
+            }.show()
             return
         }
 
-        val removedPlayer = room.removePlayer(uid)
+        val player = room.removePlayer(uid)
 
-        if (removedPlayer != null) {
-            chat.onSystemChatMessage(StringTable.format(R.string.multiplayer_room_player_kicked, removedPlayer.name, removedPlayer.id), "#FFBFBF")
+        if (player != null) {
+            chat.onSystemChatMessage(StringTable.format(R.string.multiplayer_room_player_kicked, player.name, player.id), "#FFBFBF")
         }
 
-        updateThread { updateInformation() }
+        updateInformation()
         updatePlayerList()
     }
 
     override fun onPlayerStatusChange(uid: Long, status: PlayerStatus) {
 
-        val target = room.playersMap[uid] ?: run {
-            Multiplayer.log("WARNING: onPlayerStatusChange — unknown uid $uid, player may have already left")
-            return
-        }
-        target.status = status
+        room.playersMap[uid]!!.status = status
 
-        val player = Multiplayer.player
-        if (player != null && uid == player.id) {
-            isWaitingForStatusChange.set(false)
+        if (uid == Multiplayer.player!!.id) {
+            isWaitingForStatusChange = false
         }
 
-        updateThread { updateInformation() }
+        updateInformation()
         updatePlayerList()
     }
 
     override fun onPlayerTeamChange(uid: Long, team: RoomTeam?) {
 
-        val target = room.playersMap[uid] ?: run {
-            Multiplayer.log("WARNING: onPlayerTeamChange — unknown uid $uid, player may have already left")
-            return
-        }
-        target.team = team
+        room.playersMap[uid]!!.team = team
 
         updatePlayerList()
-        updateThread { updateInformation() }
+        updateInformation()
     }
 
 }

@@ -3,6 +3,7 @@ package ru.nsu.ccfit.zuev.osu;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.os.Environment;
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.io.File;
@@ -70,35 +71,23 @@ public class ConfigBackup {
             SharedPreferences.Editor editor = prefs.edit();
 
             Iterator<String> keys = json.keys();
-
             while(keys.hasNext()) {
                 String key = keys.next();
-
-                if (Config.SENSITIVE_KEYS.contains(key)) {
-                    continue;
-                }
-
+                if(Config.SENSITIVE_KEYS.contains(key)) continue;
                 Object value = json.get(key);
             
-                switch (value.getClass().getSimpleName()) {
+                switch(value.getClass().getSimpleName()) {
                     case "Boolean":
-                        editor.putBoolean(key, (Boolean) value);
+                        editor.putBoolean(key, ((Boolean) value).booleanValue());
                         break;
                     case "Integer":
-                        int intValue = (Integer) value;
-                        int[] bounds = Config.PREFERENCE_BOUNDS.get(key);
-
-                        if (bounds != null) {
-                            intValue = Math.max(bounds[0], Math.min(bounds[1], intValue));
-                        }
-
-                        editor.putInt(key, intValue);
+                        editor.putInt(key, ((Integer) value).intValue());
                         break;
                     case "Double":
                         editor.putFloat(key, ((Double) value).floatValue());
                         break;
                     case "Long":
-                        editor.putLong(key, (Long) value);
+                        editor.putLong(key, ((Long) value).longValue());
                         break;
                     default:
                         editor.putString(key, value.toString());

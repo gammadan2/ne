@@ -39,10 +39,3 @@ proguard_logs/
 .kotlin/
 
 release.jks
-
-# Claude configuration and history
-.claude/settings.local.json
-.claude/logs/
-.claude/cache/
-.claude/worktrees/
-CLAUDE.local.md

@@ -9,7 +9,6 @@ import com.reco1l.framework.*
 import com.reco1l.framework.math.*
 import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osu.ResourceManager
-import kotlin.math.abs
 
 @Suppress("LeakingThis")
 open class FormSlider(initialValue: Float = 0f) : FormControl<Float, UISlider>(initialValue) {
@@ -17,9 +16,6 @@ open class FormSlider(initialValue: Float = 0f) : FormControl<Float, UISlider>(i
     override val control = UISlider(initialValue).apply {
         width = FillParent
     }
-
-    override val isDefault
-        get() = abs(value - defaultValue) < 1e-6f
 
     override val valueText = UIText().apply {
         font = ResourceManager.getInstance().getFont("smallFont")

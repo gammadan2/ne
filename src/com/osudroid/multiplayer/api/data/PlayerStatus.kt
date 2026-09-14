@@ -27,9 +27,6 @@ enum class PlayerStatus {
 
 
     companion object {
-        /**
-         * Returns the [PlayerStatus] for [ordinal], or `null` if the ordinal is not recognized.
-         */
-        operator fun get(ordinal: Int): PlayerStatus? = entries.getOrNull(ordinal)
+        operator fun get(ordinal: Int) = entries[ordinal]
     }
 }

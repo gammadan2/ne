@@ -23,9 +23,6 @@ enum class RoomTeam {
 
 
     companion object {
-        /**
-         * Returns the [RoomTeam] for [ordinal], or `null` if the ordinal is not recognized.
-         */
-        operator fun get(ordinal: Int): RoomTeam? = entries.getOrNull(ordinal)
+        operator fun get(ordinal: Int) = entries[ordinal]
     }
 }

@@ -3,12 +3,11 @@ package com.reco1l.andengine.ui
 import com.reco1l.andengine.*
 import com.reco1l.andengine.component.*
 import com.reco1l.andengine.container.*
+import com.reco1l.andengine.modifier.*
 import com.reco1l.andengine.shape.*
 import com.reco1l.andengine.text.*
 import com.reco1l.framework.*
 import com.reco1l.framework.math.*
-import com.rian.andengine.modifier.ModifierType
-import com.rian.andengine.modifier.UniversalModifier
 import org.anddev.andengine.input.touch.*
 import ru.nsu.ccfit.zuev.osu.*
 
@@ -104,7 +103,7 @@ open class UIModal(
      * Called when [show] is called. This is where you should set up the modal's animations.
      */
     protected open fun onShow() {
-        // If there's no parent previously set, attach to the current scene.
+        // If there's not parent previously set, attach to the current scene.
         if (parent == null) {
             var currentScene = UIEngine.current.scene
 
@@ -145,7 +144,7 @@ open class UIModal(
             onShow()
             isVisible = true
 
-            clearModifiers(false, ModifierType.ScaleXY, ModifierType.Alpha)
+            clearModifiers(ModifierType.Parallel)
             createShowAnimation()().after {
                 onShown()
             }
@@ -159,7 +158,7 @@ open class UIModal(
         if (isVisible) {
             onHide()
 
-            clearModifiers(false, ModifierType.ScaleXY, ModifierType.Alpha)
+            clearModifiers(ModifierType.Parallel)
             createHideAnimation()().after {
                 isVisible = false
                 onHidden()

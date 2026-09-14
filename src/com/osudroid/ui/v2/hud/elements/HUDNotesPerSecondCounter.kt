@@ -1,6 +1,6 @@
 package com.osudroid.ui.v2.hud.elements
 
-import com.osudroid.beatmaps.hitobjects.HitObject
+import com.rian.osu.beatmap.hitobject.HitObject
 import ru.nsu.ccfit.zuev.osu.game.GameHelper
 import ru.nsu.ccfit.zuev.osu.game.GameScene
 

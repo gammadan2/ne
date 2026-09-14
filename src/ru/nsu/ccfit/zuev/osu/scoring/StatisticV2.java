@@ -1,24 +1,23 @@
 package ru.nsu.ccfit.zuev.osu.scoring;
 
-import androidx.annotation.Nullable;
-
 import ru.nsu.ccfit.zuev.osu.SecurityUtils;
 
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Random;
 
-import com.osudroid.mods.IModRequiresBeatmapDifficulty;
 import com.osudroid.multiplayer.api.data.RoomTeam;
 import com.osudroid.multiplayer.api.data.WinCondition;
 import com.osudroid.data.ScoreInfo;
 import com.osudroid.multiplayer.Multiplayer;
-import com.osudroid.beatmaps.sections.BeatmapDifficulty;
-import com.osudroid.mods.IMigratableMod;
-import com.osudroid.mods.ModFlashlight;
-import com.osudroid.mods.ModHidden;
-import com.osudroid.utils.ModHashMap;
-import com.osudroid.utils.ModUtils;
+import com.rian.osu.beatmap.Beatmap;
+import com.rian.osu.beatmap.sections.BeatmapDifficulty;
+import com.rian.osu.mods.IMigratableMod;
+import com.rian.osu.mods.IModRequiresOriginalBeatmap;
+import com.rian.osu.mods.ModFlashlight;
+import com.rian.osu.mods.ModHidden;
+import com.rian.osu.utils.ModHashMap;
+import com.rian.osu.utils.ModUtils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -112,15 +111,14 @@ public class StatisticV2 implements Serializable {
         hit50 = Integer.parseInt(params[8]);
         misses = Integer.parseInt(params[9]);
 
-        // params[10] is a flag that denotes whether a replay is available, which is not used here, so we skip it.
-        if (params.length >= 12) {
-            time = Long.parseLong(params[11]);
+        if (params.length >= 11) {
+            time = Long.parseLong(params[10]);
         }
 
-        sliderHeadHits = params.length >= 13 ? Integer.parseInt(params[12]) : -1;
-        sliderTickHits = params.length >= 14 ? Integer.parseInt(params[13]) : -1;
-        sliderRepeatHits = params.length >= 15 ? Integer.parseInt(params[14]) : -1;
-        sliderEndHits = params.length >= 16 ? Integer.parseInt(params[15]) : -1;
+        sliderHeadHits = params.length >= 12 ? Integer.parseInt(params[11]) : -1;
+        sliderTickHits = params.length >= 13 ? Integer.parseInt(params[12]) : -1;
+        sliderRepeatHits = params.length >= 14 ? Integer.parseInt(params[13]) : -1;
+        sliderEndHits = params.length >= 15 ? Integer.parseInt(params[14]) : -1;
 
         if (originalDifficulty != null) {
             migrateLegacyMods(originalDifficulty);
@@ -155,7 +153,7 @@ public class StatisticV2 implements Serializable {
         if (forcedScore > 0)
             return forcedScore;
 
-        return Math.round(totalScore * modScoreMultiplier);
+        return (int) (totalScore * modScoreMultiplier);
     }
 
     public void registerSpinnerHit() {
@@ -506,7 +504,7 @@ public class StatisticV2 implements Serializable {
         StringBuilder builder = new StringBuilder();
         builder.append(mod.serializeMods(false));
         builder.append(' ');
-        builder.append(getTotalScore());
+        builder.append(getTotalScoreWithMultiplier());
         builder.append(' ');
         builder.append(getScoreMaxCombo());
         builder.append(' ');
@@ -578,11 +576,6 @@ public class StatisticV2 implements Serializable {
         }
     }
 
-    public double getAverageHitOffset() {
-        int count = positiveHitOffsetCount + negativeHitOffsetCount;
-        return count > 0 ? (positiveHitOffsetSum + negativeHitOffsetSum) / count : 0;
-    }
-
     public double getNegativeHitError() {
         return negativeHitOffsetCount == 0 ? 0 : negativeHitOffsetSum / negativeHitOffsetCount;
     }
@@ -635,7 +628,7 @@ public class StatisticV2 implements Serializable {
             playerName,
             replayFilename,
             mod.serializeMods(false),
-            getTotalScore(),
+            getTotalScoreWithMultiplier(),
             scoreMaxCombo,
             getMark(),
             hit300k,
@@ -652,12 +645,10 @@ public class StatisticV2 implements Serializable {
         );
     }
 
-    public void calculateModScoreMultiplier(@Nullable final BeatmapDifficulty difficulty) {
-        if (difficulty != null) {
-            for (var m : mod.values()) {
-                if (m instanceof IModRequiresBeatmapDifficulty requiresBeatmapDifficulty) {
-                    requiresBeatmapDifficulty.applyFromBeatmapDifficulty(difficulty);
-                }
+    public void calculateModScoreMultiplier(final Beatmap beatmap) {
+        for (var m : mod.values()) {
+            if (m instanceof IModRequiresOriginalBeatmap requiresOriginalBeatmap) {
+                requiresOriginalBeatmap.applyFromBeatmap(beatmap);
             }
         }
 
@@ -705,10 +696,7 @@ public class StatisticV2 implements Serializable {
         scoreMaxCombo = 0;
         currentCombo = 0;
         totalScore = 0;
-        scoreHash = SecurityUtils.getHigh16Bits(0);
         hp = 1;
-        life = 1;
-        isAlive = true;
         mark = null;
         bonusScore = 0;
         positiveHitOffsetCount = 0;

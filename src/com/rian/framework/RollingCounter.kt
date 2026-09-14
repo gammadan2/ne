@@ -2,7 +2,6 @@ package com.rian.framework
 
 import com.edlplan.framework.easing.Easing
 import com.reco1l.framework.interpolate
-import org.anddev.andengine.engine.handler.IUpdateHandler
 
 /**
  * A counter that keeps track of its value over a rolling window of time.
@@ -10,9 +9,9 @@ import org.anddev.andengine.engine.handler.IUpdateHandler
  * @param initialValue The initial value of this [RollingCounter].
  * @param T The type of the value being tracked by this [RollingCounter].
  */
-abstract class RollingCounter<T>(initialValue: T) : IUpdateHandler {
+abstract class RollingCounter<T>(initialValue: T) {
     /**
-     * The duration of the rolling effect, in seconds.
+     * The duration of the rolling effect, in milliseconds.
      *
      * If set to 0, the rolling effect will be disabled and [currentValue] will immediately change to [targetValue].
      */
@@ -35,7 +34,6 @@ abstract class RollingCounter<T>(initialValue: T) : IUpdateHandler {
     var targetValue = initialValue
         set(value) {
             if (field != value) {
-                rollingStartValue = currentValue
                 field = value
                 rollingTime = 0f
             }
@@ -47,21 +45,20 @@ abstract class RollingCounter<T>(initialValue: T) : IUpdateHandler {
     val isRolling
         get() = currentValue != targetValue
 
-    private var rollingStartValue = initialValue
     private var rollingTime = 0f
 
-    override fun onUpdate(pSecondsElapsed: Float) {
+    /**
+     * Updates this [RollingCounter].
+     *
+     * @param deltaMs The time elapsed since the last update, in milliseconds.
+     */
+    fun update(deltaMs: Float) {
         if (isRolling) {
-            if (rollingDuration <= 0f) {
-                currentValue = targetValue
-                return
-            }
-
-            rollingTime = (rollingTime + pSecondsElapsed).coerceAtMost(rollingDuration)
+            rollingTime = (rollingTime + deltaMs).coerceAtMost(rollingDuration)
 
             val progress = rollingEasing.interpolate(rollingTime / rollingDuration)
 
-            currentValue = interpolate(rollingStartValue, targetValue, progress)
+            currentValue = interpolate(currentValue, targetValue, progress)
         } else {
             currentValue = targetValue
         }
@@ -73,15 +70,8 @@ abstract class RollingCounter<T>(initialValue: T) : IUpdateHandler {
      * @param value The value to set immediately.
      */
     fun setValueWithoutRolling(value: T) {
-        rollingStartValue = value
         targetValue = value
         currentValue = value
-        rollingTime = 0f
-    }
-
-    override fun reset() {
-        currentValue = targetValue
-        rollingStartValue = targetValue
         rollingTime = 0f
     }
 

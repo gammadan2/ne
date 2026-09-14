@@ -15,11 +15,6 @@ data class RoomPlayer(
     val name: String,
 
     /**
-    * The player rank.
-    */
-    val rank: Int,
-
-    /**
      * The player status.
      */
     var status: PlayerStatus,

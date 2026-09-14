@@ -1,6 +1,7 @@
 package ru.nsu.ccfit.zuev.osu.game.cursor.flashlight;
 
-import com.rian.andengine.modifier.UniversalModifier;
+import com.reco1l.andengine.modifier.Modifiers;
+import com.reco1l.andengine.modifier.UniversalModifier;
 
 import org.anddev.andengine.opengl.texture.region.TextureRegion;
 
@@ -26,13 +27,12 @@ public class MainFlashLightSprite extends FlashlightAreaSizedSprite {
     }
 
     private void changeArea(float fromScale, float toScale) {
-        if (modifier != null && modifier.getTarget() == this && !modifier.isAppliedToEnd()) {
-            removeModifier(modifier);
-            modifier = null;
+        if (modifier != null && !modifier.isFinished()) {
+            unregisterEntityModifier(modifier);
         }
 
-        setScale(fromScale * sizeMultiplier);
-        modifier = scaleTo(toScale * sizeMultiplier, AREA_CHANGE_FADE_DURATION).after(e -> modifier = null);
+        modifier = Modifiers.scale(AREA_CHANGE_FADE_DURATION, fromScale * sizeMultiplier, toScale * sizeMultiplier);
+        registerEntityModifier(modifier);
     }
 
     public void onUpdate(int combo) {
