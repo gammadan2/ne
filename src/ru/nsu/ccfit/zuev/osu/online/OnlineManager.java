@@ -26,7 +26,7 @@ import ru.nsu.ccfit.zuev.osu.helper.FileUtils;
 import ru.nsu.ccfit.zuev.osu.helper.MD5Calculator;
 import ru.nsu.ccfit.zuev.osu.online.PostBuilder.RequestException;
 import ru.nsu.ccfit.zuev.osu.scoring.BeatmapLeaderboardScoringMode;
-import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
+import ru.nsu.ccfit.zuev.ResourceManager;
 
 public class OnlineManager {
 
