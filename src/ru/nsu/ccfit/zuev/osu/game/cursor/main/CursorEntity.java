@@ -7,7 +7,7 @@ import org.anddev.andengine.opengl.texture.region.TextureRegion;
 
 import ru.nsu.ccfit.zuev.osu.Config;
 import ru.nsu.ccfit.zuev.osu.GlobalManager;
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import ru.nsu.ccfit.zuev.osu.game.cursor.trail.CursorTrail;
 
 public class CursorEntity extends Entity {
@@ -27,7 +27,9 @@ public class CursorEntity extends Entity {
             particleOffsetX = -trailTex.getWidth() / 2f;
             particleOffsetY = -trailTex.getHeight() / 2f;
 
-            var spawnRate = (int) (GlobalManager.getInstance().getMainActivity().getRefreshRate() * 2);
+            // Spawn rate must be high enough to create a dense, gap-free trail.
+            // At 60fps × 4 = 240 particles/sec, with ~0.25s lifetime = ~60 visible dots.
+            var spawnRate = (int) (GlobalManager.getInstance().getMainActivity().getRefreshRate() * 4);
 
             emitter = new PointParticleEmitter(particleOffsetX, particleOffsetY);
             trail = new CursorTrail(emitter, spawnRate, trailTex, cursorSprite);
@@ -44,12 +46,19 @@ public class CursorEntity extends Entity {
     public void setShowing(boolean showing) {
         isShowing = showing;
         setVisible(showing);
-        if (trail != null)
+        cursorSprite.setVisible(showing);
+        if (trail != null) {
             trail.setParticlesSpawnEnabled(showing);
+            if (!showing) {
+                trail.reset();
+            }
+        }
     }
 
     public void click() {
-        cursorSprite.handleClick();
+        if (isShowing) {
+            cursorSprite.handleClick();
+        }
     }
 
     public void update(float pSecondsElapsed) {
@@ -71,10 +80,19 @@ public class CursorEntity extends Entity {
         fgScene.attachChild(this);
     }
 
+    private float lastX = -1000, lastY = -1000;
+
     @Override
     public void setPosition(float pX, float pY) {
-        if (emitter != null)
+        if (emitter != null) {
+            float dx = pX - lastX;
+            float dy = pY - lastY;
+            // Always update emitter position to prevent trail gaps.
+            // The old threshold of 0.5 caused visible trail lag at 60-90 fps.
             emitter.setCenter(pX + particleOffsetX, pY + particleOffsetY);
+            lastX = pX;
+            lastY = pY;
+        }
 
         super.setPosition(pX, pY);
     }

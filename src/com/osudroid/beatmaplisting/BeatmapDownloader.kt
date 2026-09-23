@@ -5,13 +5,14 @@ import android.view.View
 import com.osudroid.resources.R.*
 import com.reco1l.framework.net.FileRequest
 import com.reco1l.framework.net.IFileRequestObserver
+import com.osudroid.utils.MainActivityHelper
 import com.osudroid.utils.mainThread
 import com.osudroid.multiplayer.Multiplayer
 import com.osudroid.ui.v1.DownloadFragment
 import com.reco1l.toolkt.kotlin.async
 import net.lingala.zip4j.ZipFile
 import ru.nsu.ccfit.zuev.osu.Config
-import ru.nsu.ccfit.zuev.osu.GlobalManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osu.helper.FileUtils
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
@@ -100,7 +101,7 @@ object BeatmapDownloader : IFileRequestObserver {
                     return
                 }
 
-                GlobalManager.getInstance().mainActivity.loadBeatmapLibrary()
+                MainActivityHelper.loadBeatmapLibrary()
             }
         } catch (e: IOException) {
             ToastLogger.showText("Import failed:" + e.message, true)

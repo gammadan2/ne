@@ -10,7 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import ru.nsu.ccfit.zuev.osu.Config
-import ru.nsu.ccfit.zuev.osu.MainActivity
+import ru.nsu.ccfit.zuev.osuplusplus.MainActivity
 
 /**
  * Logger for multiplayer events.
@@ -86,6 +86,29 @@ class MultiplayerLogger : AutoCloseable {
                 e.printStackTrace()
             }
         }
+    }
+
+    /**
+     * Flushes the writer and reads the entire log file contents.
+     */
+    fun flushAndGetLog(): String {
+        if (isClosed) {
+            return ""
+        }
+
+        try {
+            writer.flush()
+            writer.close()
+            isClosed = true
+
+            val file = File("${Config.getDefaultCorePath()}/Log", "multi_log.txt")
+            if (file.exists()) {
+                return file.readText()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return ""
     }
 
     private fun write(str: String) {

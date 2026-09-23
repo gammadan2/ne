@@ -8,7 +8,8 @@ import org.apache.commons.io.FilenameUtils
 import org.json.JSONObject
 import ru.nsu.ccfit.zuev.osu.*
 import ru.nsu.ccfit.zuev.osu.helper.sql.DBOpenHelper
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import java.io.File
 import java.io.IOException
 import java.io.ObjectInputStream
@@ -69,7 +70,7 @@ object DatabaseManager {
      */
     @JvmStatic
     val databasePath: String
-        get() = "${Config.getCorePath()}databases/room-${BuildConfig.BUILD_TYPE}.db"
+        get() = "${Config.getCorePath()}databases/room-plus-${BuildConfig.BUILD_TYPE}.db"
 
     private lateinit var database: DroidDatabase
 

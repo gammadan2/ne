@@ -12,11 +12,11 @@ import ru.nsu.ccfit.zuev.osu.*
 import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osu.helper.*
 import ru.nsu.ccfit.zuev.osu.online.*
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import java.io.*
 
-object UpdateManager: IFileRequestObserver
-{
+object UpdateManager : IFileRequestObserver {
 
     private val apksDirectory = File(Config.getCachePath(), "updates").apply(File::mkdirs)
 
@@ -33,7 +33,7 @@ object UpdateManager: IFileRequestObserver
         val version = Config.getLong("version", -1)
 
         // Ignoring debug because otherwise every compiled build will show the dialog.
-        if (!BuildConfig.DEBUG && version != -1L && version < activity.versionCode) {
+        if (!BuildConfig.DEBUG && version != -1L && version < BuildConfig.VERSION_CODE.toLong()) {
 
             MessageDialog()
                 .setTitle(StringTable.get(R.string.update_info_updated))
@@ -48,7 +48,7 @@ object UpdateManager: IFileRequestObserver
                 .show()
         }
 
-        Config.setLong("version", activity.versionCode)
+        Config.setLong("version", BuildConfig.VERSION_CODE.toLong())
         checkNewUpdates(true)
     }
 
@@ -76,7 +76,7 @@ object UpdateManager: IFileRequestObserver
                     val newVersion = response.getLong("version_code")
                     val link = response.getString("link")
 
-                    if (newVersion <= GlobalManager.getInstance().mainActivity.versionCode) {
+                    if (newVersion <= BuildConfig.VERSION_CODE.toLong()) {
                         if (!silently) {
                             ToastLogger.showText(R.string.update_info_latest, false)
                         }

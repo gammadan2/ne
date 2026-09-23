@@ -27,13 +27,14 @@ import com.rian.osu.beatmap.sections.BeatmapControlPoints;
 import com.rian.osu.gameplay.GameplayHitSampleInfo;
 import com.rian.osu.gameplay.GameplaySequenceHitSampleInfo;
 import com.rian.osu.math.Interpolation;
+import com.rian.osu.mods.ModGravity;
 import com.rian.osu.mods.ModHidden;
 import com.rian.osu.mods.ModSynesthesia;
 
 import org.anddev.andengine.entity.scene.Scene;
 import org.anddev.andengine.util.MathUtils;
 import ru.nsu.ccfit.zuev.osu.Config;
-import ru.nsu.ccfit.zuev.osu.ResourceManager;
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager;
 import ru.nsu.ccfit.zuev.osu.Utils;
 import ru.nsu.ccfit.zuev.osu.game.GameHelper.SliderPath;
 import ru.nsu.ccfit.zuev.osu.scoring.ResultType;
@@ -458,6 +459,30 @@ public class GameplaySlider extends GameObject {
         }
 
         applyBodyFadeAdjustments(fadeInDuration);
+
+        // Gravity mod: animate slider sliding in from the configured direction
+        // MoveXY uses absolute positions, so we animate from (pos+offset) to (pos)
+        // ball and followCircle are updated every frame in update(), so we skip them here
+        if (GameHelper.isGravity()) {
+            float d = ModGravity.RISE_DISTANCE;
+            float dur = timePreempt;
+            float px = this.position.x;
+            float py = this.position.y;
+            ModGravity.AnimationDirection dir = GameHelper.getGravity().getAnimationDirection();
+            float fromX = px, fromY = py;
+            switch (dir) {
+                case BottomToTop:  fromY = py + d; break;
+                case TopToBottom:  fromY = py - d; break;
+                case LeftToRight:  fromX = px - d; break;
+                case RightToLeft:  fromX = px + d; break;
+            }
+            headCirclePiece.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+            tailCirclePiece.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+            sliderBody.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+            approachCircle.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+            startArrow.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+            endArrow.registerEntityModifier(Modifiers.move(dur, fromX, px, fromY, py));
+        }
     }
 
     private PointF getPositionAt(final float percentage, final boolean updateBallAngle, final boolean updateEndArrowRotation) {
@@ -570,7 +595,7 @@ public class GameplaySlider extends GameObject {
 
             // If the animation is enabled, at this point it will be still animating.
             if (!Config.isAnimateFollowCircle() || !isFollowCircleAnimating) {
-                Execution.updateThread(this::poolObject);
+                poolObject();
             }
         } else {
             sliderBody.registerEntityModifier(Modifiers.fadeOut(0.24f, e -> {
@@ -811,27 +836,31 @@ public class GameplaySlider extends GameObject {
         if (autoPlay || replayObjectData != null) {
             trackingCursorId = 0;
             isTracking = true;
-        } else if (hasTrackingCursor()) {
-            // If the slider is being tracked, we only want to check if the tracking cursor is still tracking it.
-            var trackingCursor = listener.getCursor(trackingCursorId);
-            var latestEvent = trackingCursor.getLatestEvent();
-
-            if (latestEvent != null && !latestEvent.isActionUp()) {
-                isTracking = isCursorTracking(position, latestEvent);
-            } else {
-                trackingCursorId = -1;
-                isTracking = false;
-            }
         } else {
-            // Otherwise, we need to check if any cursor is tracking the slider.
-            for (int i = 0, count = listener.getCursorsCount(); i < count; i++) {
-                var cursor = listener.getCursor(i);
-                var latestEvent = cursor.getLatestEvent();
+            if (trackingCursorId != -1) {
+                // If the slider is being tracked, we only want to check if the tracking cursor is still tracking it.
+                var trackingCursor = listener.getCursor(trackingCursorId);
+                var latestEvent = trackingCursor.getLatestEvent();
 
-                if (latestEvent != null && isCursorTracking(position, latestEvent)) {
-                    trackingCursorId = i;
-                    isTracking = true;
-                    break;
+                if (latestEvent != null && !latestEvent.isActionUp()) {
+                    isTracking = isCursorTracking(position, latestEvent);
+                } else {
+                    trackingCursorId = -1;
+                    isTracking = false;
+                }
+            }
+
+            if (trackingCursorId == -1) {
+                // Check if any cursor is tracking the slider.
+                for (int i = 0, count = listener.getCursorsCount(); i < count; i++) {
+                    var cursor = listener.getCursor(i);
+                    var latestEvent = cursor.getLatestEvent();
+
+                    if (latestEvent != null && isCursorTracking(position, latestEvent)) {
+                        trackingCursorId = i;
+                        isTracking = true;
+                        break;
+                    }
                 }
             }
         }
@@ -855,10 +884,6 @@ public class GameplaySlider extends GameObject {
     private boolean isTracking() {
         return isTracking && replayObjectData == null ||
                 replayObjectData != null && replayObjectData.tickSet.get(replayTickIndex);
-    }
-
-    private boolean hasTrackingCursor() {
-        return trackingCursorId != -1;
     }
 
     private void updateFollowCircleTrackingState() {
@@ -980,8 +1005,14 @@ public class GameplaySlider extends GameObject {
 
                     var position = getPositionAt(percentage, false, true);
 
-                    tailCirclePiece.setPosition(position.x, position.y);
-                    endArrow.setPosition(position.x, position.y);
+                    // Gravity offset for snaking animation
+                    float snkGx = 0f, snkGy = 0f;
+                    if (GameHelper.isGravity()) {
+                        float[] snkOff = ModGravity.getOffset((float) (elapsedSpanTime + timePreempt), (float) timePreempt, GameHelper.getGravity().getAnimationDirection());
+                        snkGx = snkOff[0]; snkGy = snkOff[1];
+                    }
+                    tailCirclePiece.setPosition(position.x + snkGx, position.y + snkGy);
+                    endArrow.setPosition(position.x + snkGx, position.y + snkGy);
                 } else {
                     if (!preStageFinish && superPath != null && sliderBody != null) {
                         sliderBody.setEndLength(superPath.getMeasurer().maxLength());
@@ -993,8 +1024,13 @@ public class GameplaySlider extends GameObject {
                         endArrow.setRotation(MathUtils.radToDeg(Utils.direction(pathEndPosition.x, pathEndPosition.y, lastPoint.x, lastPoint.y)));
                     }
 
-                    tailCirclePiece.setPosition(pathEndPosition.x, pathEndPosition.y);
-                    endArrow.setPosition(pathEndPosition.x, pathEndPosition.y);
+                    float finGx = 0f, finGy = 0f;
+                    if (GameHelper.isGravity()) {
+                        float[] finOff = ModGravity.getOffset((float) (elapsedSpanTime + timePreempt), (float) timePreempt, GameHelper.getGravity().getAnimationDirection());
+                        finGx = finOff[0]; finGy = finOff[1];
+                    }
+                    tailCirclePiece.setPosition(pathEndPosition.x + finGx, pathEndPosition.y + finGy);
+                    endArrow.setPosition(pathEndPosition.x + finGx, pathEndPosition.y + finGy);
                 }
             }
             return;
@@ -1021,6 +1057,12 @@ public class GameplaySlider extends GameObject {
         }
 
         approachCircle.clearEntityModifiers();
+
+        // Gravity: reapply approachCircle position after clearEntityModifiers
+        if (GameHelper.isGravity()) {
+            float[] aOff = ModGravity.getOffset((float) (elapsedSpanTime + timePreempt), (float) timePreempt, GameHelper.getGravity().getAnimationDirection());
+            approachCircle.setPosition(this.position.x + aOff[0], this.position.y + aOff[1]);
+        }
 
         if (startHit) {
             approachCircle.setAlpha(0);
@@ -1051,8 +1093,17 @@ public class GameplaySlider extends GameObject {
         updateSlidingSamplesVolume();
 
         // Setting position of ball and follow circle
-        followCircle.setPosition(ballPos.x, ballPos.y);
-        ball.setPosition(ballPos.x, ballPos.y);
+        float gx = 0f, gy = 0f;
+        if (GameHelper.isGravity()) {
+            // elapsedSpanTime is negative before hit (e.g. -timePreempt at appearance).
+            // Add timePreempt to map it to [0, timePreempt] range for getOffset.
+            float gravityTime = (float) (elapsedSpanTime + timePreempt);
+            float[] off = ModGravity.getOffset(gravityTime, (float) timePreempt, GameHelper.getGravity().getAnimationDirection());
+            gx = off[0];
+            gy = off[1];
+        }
+        followCircle.setPosition(ballPos.x + gx, ballPos.y + gy);
+        ball.setPosition(ballPos.x + gx, ballPos.y + gy);
         ball.setRotation(ballAngle);
 
         if (GameHelper.isAutoplay() || GameHelper.isAutopilot()) {
@@ -1227,7 +1278,14 @@ public class GameplaySlider extends GameObject {
     }
 
     private double getLateHitThreshold() {
-        return hitWindow != null ? Math.min(hitWindow.getMehWindow() / 1000, duration) : duration;
+        double mehWindow = hitWindow.getMehWindow() / 1000;
+
+        // In replays older than version 7, the slider head's hit window is capped to the slider's duration.
+        if (replayObjectData != null && GameHelper.getReplayVersion() <= 7) {
+            return Math.min(mehWindow, duration);
+        }
+
+        return mehWindow;
     }
 
     private double getLateHitOffset() {
@@ -1419,4 +1477,101 @@ public class GameplaySlider extends GameObject {
         return tmpPoint;
     }
 
+    /**
+     * Returns the start angle of the slider in radians.
+     * This is the direction from the first path segment.
+     * Mirrors danser-go's {@code GetStartAngleMod}.
+     */
+    public float getSliderStartAngleRad() {
+        if (path == null || path.anchorCount < 2) {
+            return 0f;
+        }
+        float dx = path.getX(1) - path.getX(0);
+        float dy = path.getY(1) - path.getY(0);
+        return Utils.direction(dx, dy);
+    }
+
+    /**
+     * Returns the end angle of the slider in radians.
+     * This is the direction of the last path segment.
+     * Mirrors danser-go's {@code GetEndAngleMod}.
+     */
+    public float getSliderEndAngleRad() {
+        if (path == null || path.anchorCount < 2) {
+            return 0f;
+        }
+        int last = path.anchorCount - 1;
+        float dx = path.getX(last) - path.getX(last - 1);
+        float dy = path.getY(last) - path.getY(last - 1);
+        return Utils.direction(dx, dy);
+    }
+
+    /**
+     * Returns the stacked position of the slider at the given absolute time (ms).
+     * This approximates danser-go's {@code GetStackedPositionAtMod(time, diff)}.
+     */
+    public PointF getStackedPositionAtTime(float timeMs) {
+        if (path == null || path.anchorCount < 2) {
+            return new PointF(position);
+        }
+
+        double durationMsDouble = beatmapSlider.getDuration();
+        if (durationMsDouble <= 0) {
+            return new PointF(position);
+        }
+        float durationMs = (float) durationMsDouble;
+
+        double startTimeDouble = beatmapSlider.startTime;
+        float t = (float) ((timeMs - startTimeDouble) / durationMs);
+        t = Math.max(0f, Math.min(1f, t));
+
+        int left = 0;
+        int right = path.anchorCount - 2;
+        float currentLength = t * path.getLength(path.anchorCount - 1);
+
+        while (left <= right) {
+            int pivot = left + ((right - left) >> 1);
+            float length = path.getLength(pivot);
+
+            if (length < currentLength) {
+                left = pivot + 1;
+            } else if (length > currentLength) {
+                right = pivot - 1;
+            } else {
+                break;
+            }
+        }
+
+        int index = Math.max(0, Math.min(left - 1, path.anchorCount - 2));
+        float segmentLength = path.getLength(index + 1) - path.getLength(index);
+
+        if (segmentLength <= 0) {
+            return new PointF(position.x + path.getX(index), position.y + path.getY(index));
+        }
+
+        float progress = (currentLength - path.getLength(index)) / segmentLength;
+        progress = Math.max(0f, Math.min(1f, progress));
+
+        float x = path.getX(index) + (path.getX(index + 1) - path.getX(index)) * progress;
+        float y = path.getY(index) + (path.getY(index + 1) - path.getY(index)) * progress;
+
+        return new PointF(position.x + x, position.y + y);
+    }
+
+    /**
+     * Returns the distance from this slider's stacked end position to the given point.
+     */
+    public float distanceToEnd(PointF target) {
+        PointF endPos = new PointF(pathEndPosition);
+        return Utils.distance(endPos, target);
+    }
+
+    /**
+     * Returns the distance from this slider's stacked start position to the given point.
+     */
+    public float distanceToStart(PointF target) {
+        return Utils.distance(position, target);
+    }
+
 }
+

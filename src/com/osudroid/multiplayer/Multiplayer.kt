@@ -2,6 +2,7 @@ package com.osudroid.multiplayer
 
 import android.net.*
 import android.util.Log
+import com.osudroid.utils.MainActivityHelper
 import com.osudroid.multiplayer.api.RoomAPI
 import com.osudroid.multiplayer.api.data.Room
 import com.osudroid.multiplayer.api.data.RoomPlayer
@@ -13,7 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONArray
-import ru.nsu.ccfit.zuev.osu.GlobalManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osu.menu.*
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager
@@ -106,8 +107,8 @@ object Multiplayer {
             try {
                 LoadingScreen().show()
 
-                GlobalManager.getInstance().mainActivity.checkNewSkins()
-                GlobalManager.getInstance().mainActivity.loadBeatmapLibrary()
+                MainActivityHelper.checkNewSkins()
+                MainActivityHelper.loadBeatmapLibrary()
 
                 val roomID = link.pathSegments[0].toLong()
                 val password = if (link.pathSegments.size > 1) link.pathSegments[1] else null
@@ -181,7 +182,8 @@ object Multiplayer {
 
         // Replacing server statistic with local
         val ownScore = GlobalManager.getInstance().gameScene.stat
-        val ownScoreIndex = list.indexOfFirst { it.playerName == OnlineManager.getInstance().username }.takeUnless { it == -1 }
+        val ownScoreIndex =
+            list.indexOfFirst { it.playerName == OnlineManager.getInstance().username }.takeUnless { it == -1 }
 
         if (ownScore != null) {
             // This should never happen
@@ -246,7 +248,10 @@ object Multiplayer {
 
                 // Timeout to reconnect was exceed.
                 if (currentTime - reconnectionStartTimeMS >= 30000) {
-                    ToastLogger.showText("The connection to server has been lost, please check your internet connection.", true)
+                    ToastLogger.showText(
+                        "The connection to server has been lost, please check your internet connection.",
+                        true
+                    )
                     roomScene?.back()
                     return@launch
                 }
@@ -289,5 +294,20 @@ object Multiplayer {
     @JvmStatic
     fun flushLog() {
         logger.flush()
+    }
+
+    @JvmStatic
+    fun copyMultiLog() {
+        try {
+            val logText = logger.flushAndGetLog()
+            if (logText.isNotEmpty()) {
+                val clipboard = GlobalManager.getInstance().getMainActivity().getSystemService(android.content.ClipboardManager::class.java)
+                val clip = android.content.ClipData.newPlainText("osu!droid+ Multiplayer Log", logText)
+                clipboard?.setPrimaryClip(clip)
+                log("Multiplayer log copied to clipboard.")
+            }
+        } catch (e: Exception) {
+            log("Failed to copy multiplayer log: ${e.message}")
+        }
     }
 }

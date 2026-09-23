@@ -3,6 +3,8 @@ package com.edlplan.ui.fragment;
 import android.animation.Animator;
 import android.content.Intent;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import com.google.android.material.snackbar.Snackbar;
 
 import androidx.core.content.FileProvider;
@@ -24,9 +26,9 @@ import com.reco1l.toolkt.android.Views;
 import java.io.File;
 import java.util.Locale;
 
-import ru.nsu.ccfit.zuev.osu.GlobalManager;
-import ru.nsu.ccfit.zuev.osuplus.BuildConfig;
-import ru.nsu.ccfit.zuev.osuplus.R;
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager;
+import ru.nsu.ccfit.zuev.osuplusplus.BuildConfig;
+import ru.nsu.ccfit.zuev.osuplusplus.R;
 
 public class ScoreMenuFragment extends BaseFragment {
 
@@ -118,6 +120,42 @@ public class ScoreMenuFragment extends BaseFragment {
                 .show();
         });
 
+        findViewById(R.id.exportMp4).setOnClickListener(v -> {
+
+            var scoreInfo = DatabaseManager.getScoreInfoTable().getScore(scoreId);
+
+            if (scoreInfo == null || scoreInfo.getReplayFilename() == null || scoreInfo.getReplayFilename().isEmpty()) {
+                Toast.makeText(v.getContext(), "No replay available for this score", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            String replayPath = scoreInfo.getReplayPath();
+            if (!new File(replayPath).exists()) {
+                Toast.makeText(v.getContext(), "Replay file not found", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            String outputDir = Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_MOVIES) + "/osu-droid/";
+            new File(outputDir).mkdirs();
+            String outputPath = outputDir + "osu_" + System.currentTimeMillis() + ".mp4";
+
+            // Dismiss the popup first
+            ScoreMenuFragment.this.dismiss();
+
+            // Set pending export on GameScene
+            ru.nsu.ccfit.zuev.osu.game.GameScene.setPendingExport(outputPath);
+
+            // Start the replay with auto-export
+            var songMenu = GlobalManager.getInstance().getSongMenu();
+            songMenu.stopMusicStatic();
+            songMenu.game.startGame(beatmap, replayPath, null);
+
+            new Handler(Looper.getMainLooper()).post(() ->
+                Toast.makeText(v.getContext(), "Exporting replay to MP4...", Toast.LENGTH_SHORT).show()
+            );
+        });
+
         playOnLoadAnim();
         Views.setCornerRadius(findViewById(R.id.fullLayout), Dimensions.getDp(14f));
     }
@@ -168,3 +206,4 @@ public class ScoreMenuFragment extends BaseFragment {
         show();
     }
 }
+

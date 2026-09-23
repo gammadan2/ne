@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+>
+
+    <PreferenceCategory android:title="Autoplay Movement Settings">
+
+        <ListPreference
+            android:key="autoplayStyle"
+            android:title="@string/autoplay_movement_type"
+            android:summary="Select autoplay movement style"
+            android:entries="@array/autoplay_movement_names"
+            android:entryValues="@array/autoplay_movement_values"
+            android:defaultValue="linear"
+            app:layout="@layout/settings_preference"
+        />
+
+    </PreferenceCategory>
+
+</androidx.preference.PreferenceScreen>

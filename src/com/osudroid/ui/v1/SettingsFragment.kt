@@ -29,6 +29,7 @@ import androidx.core.view.updateLayoutParams
 import androidx.preference.CheckBoxPreference
 import androidx.preference.Preference
 import androidx.preference.PreferenceManager
+import androidx.preference.ListPreference
 import androidx.preference.SeekBarPreference
 import com.acivev.VibratorManager
 import com.edlplan.framework.easing.Easing
@@ -47,6 +48,7 @@ import com.osudroid.utils.async
 import com.osudroid.utils.mainThread
 import com.reco1l.framework.asTimeInterpolator
 import com.osudroid.multiplayer.Multiplayer
+import com.osudroid.ui.v2.CalibrationScene
 import com.reco1l.osu.ui.InputPreference
 import com.reco1l.osu.ui.Option
 import com.reco1l.osu.ui.SelectPreference
@@ -65,14 +67,16 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Job
 import ru.nsu.ccfit.zuev.osu.Config
 import ru.nsu.ccfit.zuev.osu.ConfigBackup
-import ru.nsu.ccfit.zuev.osu.GlobalManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import ru.nsu.ccfit.zuev.osu.LibraryManager
-import ru.nsu.ccfit.zuev.osu.MainActivity
-import ru.nsu.ccfit.zuev.osu.ResourceManager
+import ru.nsu.ccfit.zuev.osuplusplus.MainActivity
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 import ru.nsu.ccfit.zuev.osu.ToastLogger
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager
-import ru.nsu.ccfit.zuev.osuplus.R
+
+import org.anddev.andengine.util.FrameLimiter
+import ru.nsu.ccfit.zuev.osuplusplus.R
 import ru.nsu.ccfit.zuev.skins.BeatmapSkinManager
 
 
@@ -144,6 +148,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
     }
+
 
 
     override fun onLoadView() {
@@ -221,6 +226,8 @@ class SettingsFragment : SettingsFragment() {
         }
 
         createSectionButton("Input", R.drawable.trackpad_input_24px, Section.Input)
+        createSectionButton("osu!droid+", R.drawable.star_24px, Section.OsuDroidPlus)
+        createSectionButton("Plugins", R.drawable.add_24px, Section.Plugins)
         createSectionButton("Advanced", R.drawable.manufacturing_24px, Section.Advanced)
 
 
@@ -238,7 +245,7 @@ class SettingsFragment : SettingsFragment() {
 
     // For whatever reason this is restricted API when it wasn't in previous SDKs.
     @SuppressLint("RestrictedApi")
-    override fun onBindPreferences() = when(section) {
+    override fun onBindPreferences() = when (section) {
 
         Section.General -> handleGeneralSectionPreferences()
         Section.Graphics -> handleGraphicsSectionPreferences()
@@ -247,10 +254,18 @@ class SettingsFragment : SettingsFragment() {
         Section.Library -> handleLibrarySectionPreferences()
         Section.Advanced -> handleAdvancedSectionPreferences()
         Section.Input -> handleInputSectionPreferences()
+        Section.OsuDroidPlus -> handleOsuDroidPlusSectionPreferences()
+        Section.Plugins -> handlePluginsSectionPreferences()
         Section.Player -> handlePlayerSectionPreferences()
         Section.Room -> handleRoomSectionPreferences()
     }
 
+
+    override fun show() {
+        // Duck volume when settings are opened
+        GlobalManager.getInstance().songService?.volume = Config.getBgmVolume() * 0.3f
+        super.show()
+    }
 
     override fun dismiss() {
         Config.loadConfig(requireActivity())
@@ -270,21 +285,26 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleGeneralSectionPreferences() {
-        findPreference<InputPreference>("onlinePassword")!!.setOnTextInputBind {
+        findPreference<InputPreference>("onlinePassword")?.setOnTextInputBind {
             inputType = TYPE_CLASS_TEXT or TYPE_TEXT_VARIATION_PASSWORD
         }
 
-        findPreference<Preference>("registerAcc")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("registerAcc")?.setOnPreferenceClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REGISTER_URL)))
             true
         }
 
-        findPreference<Preference>("update")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("serverLink")?.setOnPreferenceClickListener {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://osu-droid-plus-server.larizrkpee.workers.dev")))
+            true
+        }
+
+        findPreference<Preference>("update")?.setOnPreferenceClickListener {
             UpdateManager.checkNewUpdates(false)
             true
         }
 
-        findPreference<Preference>("backup")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("backup")?.setOnPreferenceClickListener {
             val success = ConfigBackup.exportPreferences()
 
             ToastLogger.showText(
@@ -295,7 +315,7 @@ class SettingsFragment : SettingsFragment() {
             true
         }
 
-        findPreference<Preference>("restore")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("restore")?.setOnPreferenceClickListener {
             val context = it.context
             val success = ConfigBackup.importPreferences()
 
@@ -317,7 +337,7 @@ class SettingsFragment : SettingsFragment() {
             true
         }
 
-        findPreference<SelectPreference>("difficultyAlgorithm")!!.setOnPreferenceChangeListener { _, newValue ->
+        findPreference<SelectPreference>("difficultyAlgorithm")?.setOnPreferenceChangeListener { _, newValue ->
             if (Multiplayer.isMultiplayer) {
                 // We need to manually update it before because the preference is updated after this listener.
                 Config.setString("difficultyAlgorithm", newValue as String)
@@ -326,7 +346,7 @@ class SettingsFragment : SettingsFragment() {
             true
         }
 
-        findPreference<SelectPreference>("appLanguage")!!.apply {
+        findPreference<SelectPreference>("appLanguage")?.apply {
             if (Multiplayer.isMultiplayer) {
                 isEnabled = false
                 return
@@ -378,7 +398,7 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleGraphicsSectionPreferences() {
-        findPreference<SelectPreference>("skinPath")!!.apply {
+        findPreference<SelectPreference>("skinPath")?.apply {
 
             val skinMain = File(Config.getSkinTopPath())
             val skins = Config.getSkins().map { Option(it.key, it.value) }.toMutableList()
@@ -392,7 +412,14 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<Preference>("hud_editor")!!.apply {
+        findPreference<Preference>("export_skin")?.apply {
+            setOnPreferenceClickListener {
+                exportSkinToOsk()
+                true
+            }
+        }
+
+        findPreference<Preference>("hud_editor")?.apply {
 
             if (Multiplayer.isMultiplayer) {
                 isEnabled = false
@@ -424,7 +451,7 @@ class SettingsFragment : SettingsFragment() {
     private fun handleGameplaySectionPreferences() {
         val playfieldAreaDisplay = PlayfieldAreaDisplay()
 
-        findPreference<SeekBarPreference>("playfieldSize")!!.apply {
+        findPreference<SeekBarPreference>("playfieldSize")?.apply {
             updatesContinuously = true
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -434,7 +461,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SeekBarPreference>("playfieldHorizontalPosition")!!.apply {
+        findPreference<SeekBarPreference>("playfieldHorizontalPosition")?.apply {
             updatesContinuously = true
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -444,7 +471,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SeekBarPreference>("playfieldVerticalPosition")!!.apply {
+        findPreference<SeekBarPreference>("playfieldVerticalPosition")?.apply {
             updatesContinuously = true
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -457,7 +484,7 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleAudioSectionPreferences() {
-        findPreference<SeekBarPreference>("bgmvolume")!!.apply {
+        findPreference<SeekBarPreference>("bgmvolume")?.apply {
             updatesContinuously = true
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -466,7 +493,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SeekBarPreference>("soundvolume")!!.apply {
+        findPreference<SeekBarPreference>("soundvolume")?.apply {
             setOnPreferenceChangeListener { _, newValue ->
                 // Set the configuration now as the sound below depends on this value.
                 Config.setSoundVolume((newValue as Int) / 100f)
@@ -479,34 +506,35 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<Preference>("offset_calibration")!!.setOnPreferenceClickListener {
-            val self = this
-            GlobalManager.getInstance().engine.runOnUpdateThread {
-                // When Back or SET is pressed in the calibration scene it will
-                // call this lambda on the main thread, re-opening settings
-                // exactly where the user left off (Audio section).
-                com.osudroid.ui.v2.CalibrationScene.onClosed = { self.show() }
-                com.osudroid.ui.v2.CalibrationScene.show()
-            }
-            dismiss()
+        val offsetPreference = findPreference<SeekBarPreference>("offset") ?: return
+
+        findPreference<Preference>("offset_calibration")?.setOnPreferenceClickListener {
+            CalibrationScene.settingsFragment = this
+            CalibrationScene.OFFSET_MIN = offsetPreference.min
+            CalibrationScene.OFFSET_MAX = offsetPreference.max
+            CalibrationScene.show()
+
+            // We only want to dismiss the fragment, not reapply preferences (which is what the override does).
+            super.dismiss()
+
             true
         }
     }
 
 
     private fun handleLibrarySectionPreferences() {
-        findPreference<Preference>("clear_beatmap_cache")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("clear_beatmap_cache")?.setOnPreferenceClickListener {
             LibraryManager.clearDatabase()
             ToastLogger.showText(StringTable.get(string.library_cleared), true)
             true
         }
 
-        findPreference<Preference>("clear_properties")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("clear_properties")?.setOnPreferenceClickListener {
             DatabaseManager.beatmapOptionsTable.deleteAll()
             true
         }
 
-        findPreference<Preference>("importReplay")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("importReplay")?.setOnPreferenceClickListener {
             replayFilePicker.launch("application/octet-stream")
 
             true
@@ -514,14 +542,159 @@ class SettingsFragment : SettingsFragment() {
     }
 
 
-    private fun handleAdvancedSectionPreferences() {
-        findPreference<CheckBoxPreference>("forceMaxRefreshRate")!!.apply {
-            // Obtaining supported refresh rates is only available on Android 12 and above.
-            // See https://developer.android.com/reference/android/view/Display.Mode#getAlternativeRefreshRates().
+    private fun handleOsuDroidPlusSectionPreferences() {
+        findPreference<CheckBoxPreference>("forceMaxRefreshRate")?.apply {
             isVisible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         }
 
-        findPreference<InputPreference>("skinTopPath")!!.setOnPreferenceChangeListener { it, newValue ->
+        findPreference<ListPreference>("frameLimiterMode")?.apply {
+            setOnPreferenceChangeListener { _, newValue ->
+                val mode = (newValue as String).toInt()
+                val displayRate = getDisplayRefreshRate()
+                Config.setString("frameLimiterMode", mode.toString())
+                val customFps = Config.getInt("customFrameRate", 0)
+                FrameLimiter.getInstance().configure(mode, customFps, displayRate)
+                applyEngineFrameRate(mode, displayRate)
+                true
+            }
+        }
+
+        findPreference<SeekBarPreference>("customFrameRate")?.apply {
+            setOnPreferenceChangeListener { _, newValue ->
+                val fps = newValue as Int
+                val mode = Config.getString("frameLimiterMode", "0")?.toIntOrNull() ?: 0
+                val displayRate = getDisplayRefreshRate()
+                Config.setInt("customFrameRate", fps)
+                FrameLimiter.getInstance().configure(mode, fps, displayRate)
+                applyEngineFrameRate(mode, displayRate)
+                true
+            }
+        }
+
+        val trailImplPref = findPreference<ListPreference>("trailImplementation")
+        val trailLengthPref = findPreference<SeekBarPreference>("trailLength")
+        val trailSizePref = findPreference<SeekBarPreference>("trailSize")
+        val trailWidthPref = findPreference<SeekBarPreference>("trailWidth")
+        val trailDelayPref = findPreference<CheckBoxPreference>("trailDelayEnabled")
+        val rotateTrailPref = findPreference<CheckBoxPreference>("rotateCursorTrail")
+
+        fun updateTrailSettingsVisibility(value: String?) {
+            val isLong = value == "1"
+            trailLengthPref?.isVisible = isLong
+            trailSizePref?.isVisible = isLong
+            trailWidthPref?.isVisible = isLong
+            trailDelayPref?.isVisible = isLong
+            rotateTrailPref?.isVisible = isLong
+        }
+
+        updateTrailSettingsVisibility(trailImplPref?.value)
+
+        trailImplPref?.setOnPreferenceChangeListener { _, newValue ->
+            updateTrailSettingsVisibility(newValue as String)
+            true
+        }
+
+        val enhancedAnimPref = findPreference<CheckBoxPreference>("enhancedAnimations")
+        val animSpeedPref = findPreference<SeekBarPreference>("animationSpeed")
+        val animEasingPref = findPreference<ListPreference>("animationEasing")
+        val smoothTransPref = findPreference<CheckBoxPreference>("smoothTransitions")
+        val menuAnimPref = findPreference<CheckBoxPreference>("menuAnimations")
+        val storyboardAnimPref = findPreference<CheckBoxPreference>("storyboardAnimations")
+        val particleAnimPref = findPreference<CheckBoxPreference>("particleAnimations")
+
+        fun updateEnhancedAnimVisibility(enabled: Boolean) {
+            animSpeedPref?.isVisible = enabled
+            animEasingPref?.isVisible = enabled
+            smoothTransPref?.isVisible = enabled
+            menuAnimPref?.isVisible = enabled
+            storyboardAnimPref?.isVisible = enabled
+            particleAnimPref?.isVisible = enabled
+        }
+
+        updateEnhancedAnimVisibility(enhancedAnimPref?.isChecked == true)
+
+        enhancedAnimPref?.setOnPreferenceChangeListener { _, newValue ->
+            updateEnhancedAnimVisibility(newValue as Boolean)
+            true
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun getDisplayRefreshRate(): Float {
+        val activity = requireActivity()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            activity.display?.refreshRate ?: 60f
+        } else {
+            @Suppress("DEPRECATION")
+            activity.windowManager.defaultDisplay.refreshRate
+        }
+    }
+
+    private fun applyEngineFrameRate(mode: Int, displayRate: Float) {
+        val engine = GlobalManager.getInstance().engine ?: return
+        val camera = GlobalManager.getInstance().camera
+
+        val effectiveFps = when (mode) {
+            1 -> 30                                    // MODE_POWER_SAVE: always 30
+            2 -> displayRate.toInt()                   // MODE_VSYNC
+            3 -> (displayRate * 4).toInt().coerceAtMost(480) // MODE_OPTIMAL
+            else -> {
+                val custom = Config.getInt("customFrameRate", 0)
+                if (custom > 0) custom else 0           // MODE_UNLIMITED
+            }
+        }
+
+        if (effectiveFps > 0) {
+            engine.setFrameRate(effectiveFps)
+            val velocity = effectiveFps * 30f
+            (camera as? org.anddev.andengine.engine.camera.SmoothCamera)?.apply {
+                setMaxVelocityX(velocity)
+                setMaxVelocityY(velocity)
+            }
+        } else {
+            engine.setFrameRate(0)
+        }
+    }
+
+    private fun handlePluginsSectionPreferences() {
+        val pluginManager = com.osudroid.plugin.PluginManager.getInstance()
+        val plugins = pluginManager.getPlugins()
+
+        // Find the "plugins_info" preference, then get its parent category
+        val infoPref = findPreference<androidx.preference.Preference>("plugins_info") ?: return
+        val category = infoPref.parent as? androidx.preference.PreferenceCategory ?: return
+
+        // Remove the info preference
+        category.removePreference(infoPref)
+
+        if (plugins.isEmpty()) {
+            // Show "no plugins" message
+            val noPlugins = androidx.preference.Preference(requireContext())
+            noPlugins.key = "plugins_empty"
+            noPlugins.title = "No plugins loaded"
+            noPlugins.summary = "Drop .lua files into \"plugins/\" folder in app storage"
+            noPlugins.isSelectable = false
+            category.addPreference(noPlugins)
+        } else {
+            for (plugin in plugins) {
+                val switchPref = androidx.preference.SwitchPreferenceCompat(requireContext())
+                switchPref.key = "plugin_enabled_" + plugin.name
+                switchPref.title = plugin.name
+                switchPref.summary = "v${plugin.version} by ${plugin.author}\n${plugin.description}"
+                switchPref.isChecked = true
+                switchPref.setOnPreferenceChangeListener { _, newValue ->
+                    val prefs = requireContext().getSharedPreferences("plugins", 0)
+                    prefs.edit().putBoolean("enabled_" + plugin.name, newValue as Boolean).apply()
+                    pluginManager.reloadPlugins(requireContext())
+                    true
+                }
+                category.addPreference(switchPref)
+            }
+        }
+    }
+
+    private fun handleAdvancedSectionPreferences() {
+        findPreference<InputPreference>("skinTopPath")?.setOnPreferenceChangeListener { it, newValue ->
 
             it as InputPreference
 
@@ -546,12 +719,12 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleInputSectionPreferences() {
-        findPreference<Preference>("block_areas")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("block_areas")?.setOnPreferenceClickListener {
             BlockAreaEditorFragment().show()
             true
         }
 
-        findPreference<SeekBarPreference>("seekBarVibrateIntensity")!!.apply {
+        findPreference<SeekBarPreference>("seekBarVibrateIntensity")?.apply {
             min = 1
             max = 255
             value = Config.getInt("seekBarVibrateIntensity", 127)
@@ -561,21 +734,21 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<CheckBoxPreference>("vibrationCircle")!!.apply {
+        findPreference<CheckBoxPreference>("vibrationCircle")?.apply {
             setOnPreferenceChangeListener { _, newValue ->
                 VibratorManager.isCircleVibrationEnabled = newValue as Boolean
                 true
             }
         }
 
-        findPreference<CheckBoxPreference>("vibrationSlider")!!.apply {
+        findPreference<CheckBoxPreference>("vibrationSlider")?.apply {
             setOnPreferenceChangeListener { _, newValue ->
                 VibratorManager.isSliderVibrationEnabled = newValue as Boolean
                 true
             }
         }
 
-        findPreference<CheckBoxPreference>("vibrationSpinner")!!.apply {
+        findPreference<CheckBoxPreference>("vibrationSpinner")?.apply {
             setOnPreferenceChangeListener { _, newValue ->
                 VibratorManager.isSpinnerVibrationEnabled = newValue as Boolean
                 true
@@ -585,7 +758,7 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handlePlayerSectionPreferences() {
-        findPreference<SelectPreference>("player_team")!!.apply {
+        findPreference<SelectPreference>("player_team")?.apply {
             isEnabled = Multiplayer.room!!.teamMode == TeamMode.TeamVersus
             value = Multiplayer.player!!.team?.ordinal?.toString()
 
@@ -595,7 +768,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<CheckBoxPreference>("player_nightcore")!!.apply {
+        findPreference<CheckBoxPreference>("player_nightcore")?.apply {
 
             setOnPreferenceChangeListener { _, newValue ->
                 Config.setUseNightcoreOnMultiplayer(newValue as Boolean)
@@ -607,18 +780,26 @@ class SettingsFragment : SettingsFragment() {
 
 
     private fun handleRoomSectionPreferences() {
-        findPreference<Preference>("room_link")!!.setOnPreferenceClickListener {
+        findPreference<Preference>("room_link")?.setOnPreferenceClickListener {
 
             requireContext().getSystemService<ClipboardManager>()!!.apply {
 
-                setPrimaryClip(ClipData.newPlainText(Multiplayer.room!!.name, "${LobbyAPI.INVITE_HOST}/${Multiplayer.room!!.id}/"))
+                setPrimaryClip(
+                    ClipData.newPlainText(
+                        Multiplayer.room!!.name,
+                        "${LobbyAPI.INVITE_HOST}/${Multiplayer.room!!.id}/"
+                    )
+                )
             }
 
-            ToastLogger.showText("Link copied to clipboard. If the room has a password, you can write it at the end of the link.", false)
+            ToastLogger.showText(
+                "Link copied to clipboard. If the room has a password, you can write it at the end of the link.",
+                false
+            )
             true
         }
 
-        findPreference<InputPreference>("room_name")!!.apply {
+        findPreference<InputPreference>("room_name")?.apply {
 
             setText(Multiplayer.room!!.name)
             setOnPreferenceChangeListener { _, newValue ->
@@ -633,7 +814,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<InputPreference>("room_password")!!.apply {
+        findPreference<InputPreference>("room_password")?.apply {
             setText(null)
             setOnPreferenceChangeListener { _, newValue ->
                 RoomAPI.setRoomPassword(newValue as String)
@@ -641,7 +822,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SeekBarPreference>("room_max_players")!!.apply {
+        findPreference<SeekBarPreference>("room_max_players")?.apply {
             min = max(2, Multiplayer.room!!.activePlayers.size)
             value = Multiplayer.room!!.maxPlayers
 
@@ -651,7 +832,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<CheckBoxPreference>("room_free_mods")!!.apply {
+        findPreference<CheckBoxPreference>("room_free_mods")?.apply {
             isChecked = Multiplayer.room!!.gameplaySettings.isFreeMod
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -660,7 +841,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SelectPreference>("room_versus_mode")!!.apply {
+        findPreference<SelectPreference>("room_versus_mode")?.apply {
             value = Multiplayer.room!!.teamMode.ordinal.toString()
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -669,7 +850,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<SelectPreference>("room_win_condition")!!.apply {
+        findPreference<SelectPreference>("room_win_condition")?.apply {
             value = Multiplayer.room!!.winCondition.ordinal.toString()
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -678,7 +859,7 @@ class SettingsFragment : SettingsFragment() {
             }
         }
 
-        findPreference<CheckBoxPreference>("room_removeSliderLock")!!.apply {
+        findPreference<CheckBoxPreference>("room_removeSliderLock")?.apply {
             isChecked = Multiplayer.room!!.gameplaySettings.isRemoveSliderLock
 
             setOnPreferenceChangeListener { _, newValue ->
@@ -688,6 +869,39 @@ class SettingsFragment : SettingsFragment() {
         }
     }
 
+
+    private fun exportSkinToOsk() {
+        val skinDir = File(Config.getSkinPath())
+        if (!skinDir.exists() || !skinDir.isDirectory) {
+            ToastLogger.showText("No skin selected to export.", true)
+            return
+        }
+
+        async {
+            try {
+                val skinName = skinDir.name.ifEmpty { "skin" }
+                val outputDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                val outFile = File(outputDir, "$skinName.osk")
+
+                java.util.zip.ZipOutputStream(java.io.FileOutputStream(outFile)).use { zos ->
+                    skinDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                        val entryName = file.relativeTo(skinDir).path
+                        zos.putNextEntry(java.util.zip.ZipEntry(entryName))
+                        file.inputStream().use { it.copyTo(zos) }
+                        zos.closeEntry()
+                    }
+                }
+
+                mainThread {
+                    ToastLogger.showText("Skin exported to: ${outFile.absolutePath}", false)
+                }
+            } catch (e: Exception) {
+                mainThread {
+                    ToastLogger.showText("Export failed: ${e.message}", true)
+                }
+            }
+        }
+    }
 
     private fun loadSkin(context: Context, path: String): Job {
         val loading = LoadingFragment()
@@ -720,6 +934,8 @@ class SettingsFragment : SettingsFragment() {
         Audio(R.xml.settings_audio),
         Library(R.xml.settings_library),
         Input(R.xml.settings_input),
+        OsuDroidPlus(R.xml.settings_osudroidplus),
+        Plugins(R.xml.settings_plugins),
         Advanced(R.xml.settings_advanced),
 
         // Multiplayer exclusive

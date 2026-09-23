@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<resources>
+
+    <!-- Animation Easing Arrays -->
+    <string-array name="animation_easing_names">
+        <item>Linear</item>
+        <item>Smooth (OutQuad)</item>
+        <item>Smoother (OutQuint)</item>
+        <item>Elastic</item>
+        <item>Bounce</item>
+        <item>Back</item>
+    </string-array>
+
+    <string-array name="animation_easing_values">
+        <item>None</item>
+        <item>OutQuad</item>
+        <item>OutQuint</item>
+        <item>OutElastic</item>
+        <item>OutBounce</item>
+        <item>OutBack</item>
+    </string-array>
+
+    <!-- Trail Implementation Arrays -->
+    <string-array name="trail_implementation_names">
+        <item>Legacy</item>
+        <item>Long</item>
+    </string-array>
+
+    <string-array name="trail_implementation_values">
+        <item>0</item>
+        <item>1</item>
+    </string-array>
+
+    <!-- Trail Style Arrays -->
+    <string-array name="trail_style_names">
+        <item>Normal</item>
+        <item>Fade</item>
+    </string-array>
+
+    <string-array name="trail_style_values">
+        <item>0</item>
+        <item>1</item>
+    </string-array>
+
+    <!-- Autoplay movement types -->
+    <string-array name="autoplay_movement_names">
+        <item>Linear</item>
+        <item>Bezier</item>
+        <item>Spline</item>
+        <item>Circular</item>
+        <item>Axis</item>
+        <item>ExGon</item>
+        <item>Aggressive</item>
+        <item>Momentum</item>
+        <item>Pippi</item>
+        <item>Flower</item>
+    </string-array>
+    <string-array name="autoplay_movement_values">
+        <item>linear</item>
+        <item>bezier</item>
+        <item>spline</item>
+        <item>circular</item>
+        <item>axis</item>
+        <item>exgon</item>
+        <item>aggressive</item>
+        <item>momentum</item>
+        <item>pippi</item>
+        <item>flower</item>
+    </string-array>
+
+    <!-- Difficulty Algorithm Arrays -->
+    <string-array name="difficulty_algorithm_names">
+        <item>osu!droid</item>
+        <item>osu!standard</item>
+        <item>DRPP</item>
+        <item>RXPP</item>
+    </string-array>
+
+    <string-array name="difficulty_algorithm_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
+    <!-- Particle Shape Arrays -->
+    <string-array name="particle_shape_names">
+        <item>Triangle</item>
+        <item>Circle</item>
+        <item>Square</item>
+    </string-array>
+
+    <string-array name="particle_shape_values">
+        <item>triangle</item>
+        <item>circle</item>
+        <item>square</item>
+    </string-array>
+
+    <!-- Particle Direction Arrays -->
+    <string-array name="particle_direction_names">
+        <item>Top to Bottom</item>
+        <item>Left to Right</item>
+        <item>Right to Left</item>
+    </string-array>
+
+    <string-array name="particle_direction_values">
+        <item>down</item>
+        <item>right</item>
+        <item>left</item>
+    </string-array>
+
+    <!-- Frame Limiter Arrays -->
+    <string-array name="frame_limiter_names">
+        <item>Unlimited</item>
+        <item>Power Saving (30 FPS)</item>
+        <item>VSync (Display Refresh)</item>
+        <item>Optimal (8x Refresh, ~1ms)</item>
+    </string-array>
+
+    <string-array name="frame_limiter_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+
+
+    <!-- Chat Position Arrays -->
+    <string-array name="chat_position_entries">
+        <item>Right</item>
+        <item>Left</item>
+    </string-array>
+    <string-array name="chat_position_values">
+        <item>right</item>
+        <item>left</item>
+    </string-array>
+
+    <!-- Toast Position Arrays -->
+    <string-array name="toast_position_entries">
+        <item>Bottom Left</item>
+        <item>Bottom Right</item>
+        <item>Top Left</item>
+        <item>Top Right</item>
+    </string-array>
+    <string-array name="toast_position_values">
+        <item>bottom_left</item>
+        <item>bottom_right</item>
+        <item>top_left</item>
+        <item>top_right</item>
+    </string-array>
+
+</resources>

@@ -9,6 +9,8 @@ import com.rian.osu.beatmap.sections.BeatmapDifficulty
 import com.rian.osu.mods.settings.*
 import com.rian.osu.utils.ModUtils
 import kotlin.math.exp
+import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.pow
 import kotlin.reflect.KProperty0
 import kotlinx.coroutines.CoroutineScope
@@ -32,8 +34,8 @@ class ModDifficultyAdjust @JvmOverloads constructor(
         key = "cs",
         valueFormatter = { (it ?: defaultValue)?.roundBy(1)?.toString() ?: "None" },
         defaultValue = null,
-        minValue = 0f,
-        maxValue = 15f,
+        minValue = -12.5f,
+        maxValue = 11f,
         step = 0.1f,
         precision = 1,
         orderPosition = 0
@@ -47,11 +49,12 @@ class ModDifficultyAdjust @JvmOverloads constructor(
         key = "ar",
         valueFormatter = { (it ?: defaultValue)?.roundBy(1)?.toString() ?: "None" },
         defaultValue = null,
-        minValue = 0f,
-        maxValue = 12.5f,
+        minValue = -9999f,
+        maxValue = 15f,
         step = 0.1f,
         precision = 1,
-        orderPosition = 1
+        orderPosition = 1,
+        useManualInput = true
     )
 
     /**
@@ -62,7 +65,7 @@ class ModDifficultyAdjust @JvmOverloads constructor(
         key = "od",
         valueFormatter = { (it ?: defaultValue)?.roundBy(1)?.toString() ?: "None" },
         defaultValue = null,
-        minValue = 0f,
+        minValue = -12.5f,
         maxValue = 11f,
         step = 0.1f,
         precision = 1,
@@ -77,7 +80,7 @@ class ModDifficultyAdjust @JvmOverloads constructor(
         key = "hp",
         valueFormatter = { (it ?: defaultValue)?.roundBy(1)?.toString() ?: "None" },
         defaultValue = null,
-        minValue = 0f,
+        minValue = -12.5f,
         maxValue = 11f,
         step = 0.1f,
         precision = 1,
@@ -102,6 +105,7 @@ class ModDifficultyAdjust @JvmOverloads constructor(
     override val description = "Override a beatmap's difficulty settings."
     override val type = ModType.Conversion
     override val requiresConfiguration = true
+    override val isRanked = true
 
     // This mod has a different default than others as the default value of settings change based on the beatmap.
     override val usesDefaultSettings
@@ -109,27 +113,22 @@ class ModDifficultyAdjust @JvmOverloads constructor(
 
     override val scoreMultiplier: Float
         get() {
-            // Graph: https://www.desmos.com/calculator/yrggkhrkzz
+            // Balanced multiplier based on deviation from default
             var multiplier = 1f
-            val cs = getModSettingDelegate<NullableFloatModSetting>(::cs)
-            val od = getModSettingDelegate<NullableFloatModSetting>(::od)
 
-            if (cs.value != null && cs.defaultValue != null) {
-                val diff = cs.value!! - cs.defaultValue!!
-
-                multiplier *=
-                    if (diff >= 0) 1 + 0.0075f * diff.pow(1.5f)
-                    else 2 / (1 + exp(-0.5f * diff))
+            for (setting in listOf(::cs, ::ar, ::od, ::hp)) {
+                val delegate = getModSettingDelegate<NullableFloatModSetting>(setting)
+                if (delegate.value != null && delegate.defaultValue != null) {
+                    val diff = delegate.value!! - delegate.defaultValue!!
+                    multiplier *= if (diff >= 0) {
+                        // Harder: small bonus (max ~1.25x at +12.5)
+                        1 + 0.003f * diff.pow(1.3f)
+                    } else {
+                        // Easier: logistic penalty (min ~0.12x at -12.5)
+                        2f / (1f + exp(-0.3f * diff))
+                    }
+                }
             }
-
-            if (od.value != null && od.defaultValue != null) {
-                val diff = od.value!! - od.defaultValue!!
-
-                multiplier *=
-                    if (diff >= 0) 1 + 0.005f * diff.pow(1.3f)
-                    else 2 / (1 + exp(-0.25f * diff))
-            }
-
             return multiplier
         }
 
@@ -160,27 +159,51 @@ class ModDifficultyAdjust @JvmOverloads constructor(
             // Special case for force AR in replay version 6 and older, where the AR value is kept constant with respect
             // to game time. This makes the player perceive the AR as is under all speed multipliers.
             if (ar != null && mods.any { m -> m is ModReplayV6 }) {
-                val preempt = BeatmapDifficulty.difficultyRange(ar!!.toDouble(), HitObject.PREEMPT_MAX, HitObject.PREEMPT_MID, HitObject.PREEMPT_MIN)
+                val preempt = BeatmapDifficulty.difficultyRange(
+                    ar!!.toDouble(),
+                    HitObject.PREEMPT_MAX,
+                    HitObject.PREEMPT_MID,
+                    HitObject.PREEMPT_MIN
+                )
                 val trackRate = ModUtils.calculateRateWithMods(mods)
 
-                it.ar = BeatmapDifficulty.inverseDifficultyRange(preempt * trackRate, HitObject.PREEMPT_MAX, HitObject.PREEMPT_MID, HitObject.PREEMPT_MIN).toFloat()
+                it.ar = BeatmapDifficulty.inverseDifficultyRange(
+                    preempt * trackRate,
+                    HitObject.PREEMPT_MAX,
+                    HitObject.PREEMPT_MID,
+                    HitObject.PREEMPT_MIN
+                ).toFloat()
             }
         }
 
     override fun applyToHitObject(mode: GameMode, hitObject: HitObject, mods: Iterable<Mod>, scope: CoroutineScope?) {
-        // Special case for force AR in replay version 6 and older, where the AR value is kept constant with respect to
-        // game time. This makes the player perceive the fade in animation as is under all speed multipliers.
-        if (ar == null || mods.none { it is ModReplayV6 }) {
-            return
+        if (ar != null) {
+            // Clamp timePreempt for extreme AR values to prevent broken timing.
+            // difficultyRange(ar, 1800, 1200, 450) produces:
+            //   AR >= ~13.3 -> negative timePreempt (completely broken)
+            //   AR < -5     -> timePreempt > 2400ms (large, can break audio sync)
+            // We clamp preempt to valid ranges so the game engine works correctly.
+            hitObject.timePreempt = max(hitObject.timePreempt, 1.0)
+            hitObject.timeFadeIn = max(hitObject.timeFadeIn, 1.0)
+
+            // Cap very large preempt to prevent objects being added
+            // to the scene minutes before their hit time.
+            if (hitObject.timePreempt > 5000.0) {
+                hitObject.timePreempt = 5000.0
+            }
         }
 
-        applyOldFadeAdjustment(hitObject, mods)
+        // Special case for force AR in replay version 6 and older, where the AR value is kept constant with respect to
+        // game time. This makes the player perceive the fade in animation as is under all speed multipliers.
+        if (ar != null && mods.any { it is ModReplayV6 }) {
+            applyOldFadeAdjustment(hitObject, mods)
 
-        if (hitObject is Slider) {
-            hitObject.nestedHitObjects.forEach {
-                scope?.ensureActive()
+            if (hitObject is Slider) {
+                hitObject.nestedHitObjects.forEach {
+                    scope?.ensureActive()
 
-                applyOldFadeAdjustment(it, mods)
+                    applyOldFadeAdjustment(it, mods)
+                }
             }
         }
     }

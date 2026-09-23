@@ -4,7 +4,7 @@ import com.osudroid.ui.v2.hud.HUDElement
 import com.osudroid.ui.v2.SpriteFont
 import com.rian.framework.RollingDoubleCounter
 import ru.nsu.ccfit.zuev.osu.Config
-import ru.nsu.ccfit.zuev.osu.DifficultyAlgorithm
+import ru.nsu.ccfit.zuev.osuplusplus.DifficultyAlgorithm
 import ru.nsu.ccfit.zuev.osu.game.GameScene
 import ru.nsu.ccfit.zuev.skins.OsuSkin
 import kotlin.math.roundToInt
@@ -37,13 +37,18 @@ class HUDPPCounter : HUDElement() {
         counter.update(secondsElapsed * 1000)
 
         // The NaN check here is necessary as calculations may result in NaN values, which should not be displayed.
-        // This is not a foolproof solution, but is enough to prevent crashes from happening.
-        // Until the source of the NaN values is found and fixed, this must remain in place.
+// This is not a foolproof solution, but is enough to prevent crashes from happening.
+// Until the source of the NaN values is found and fixed, this must remain in place.
         counter.targetValue = game.stat.pp.takeIf { !it.isNaN() } ?: 0.0
         value = counter.currentValue.roundToInt()
     }
 
     private fun updateText() {
-        sprite.text = "${value}${if (Config.getDifficultyAlgorithm() == DifficultyAlgorithm.droid) "dpp" else "pp"}"
+        sprite.text = "${value} ${
+            when (Config.getDifficultyAlgorithm()) {
+                DifficultyAlgorithm.droid, DifficultyAlgorithm.drpp, DifficultyAlgorithm.rxpp -> "DPP"
+                DifficultyAlgorithm.standard -> "PP"
+            }
+        }"
     }
 }

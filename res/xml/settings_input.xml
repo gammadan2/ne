@@ -1,6 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.preference.PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+<?xml version="1.0" encoding="utf-8" ?>
+<androidx.preference.PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+>
 
     <PreferenceCategory android:title="@string/opt_category_gameplay">
 
@@ -8,14 +10,16 @@
             android:key="block_areas"
             android:title="@string/block_area_preference_title"
             android:summary="@string/block_area_preference_summary"
-            app:layout="@layout/settings_preference" />
+            app:layout="@layout/settings_preference"
+        />
 
         <CheckBoxPreference
             android:key="highPrecisionInput"
             android:defaultValue="false"
             android:title="@string/opt_highPrecisionInput_title"
             android:summary="@string/opt_highPrecisionInput_summary"
-            app:layout="@layout/settings_preference_checkbox" />
+            app:layout="@layout/settings_preference_checkbox"
+        />
 
         <com.rian.osu.ui.EditableSeekBarPreference
             android:defaultValue="300"
@@ -25,49 +29,16 @@
             app:min="0"
             android:max="300"
             app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar" />
+            app:layout="@layout/settings_preference_seekbar"
+        />
 
         <CheckBoxPreference
             android:defaultValue="false"
             android:key="removeSliderLock"
-            android:summary="@string/opt_remove_sliderlock_spinnerlock_summary"
-            android:title="@string/opt_remove_sliderlock_spinnerlock_title"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
-
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Vibration">
-
-        <CheckBoxPreference
-            android:defaultValue="false"
-            android:key="vibrationCircle"
-            android:summary=""
-            android:title="Circle"
-            app:layout="@layout/settings_preference_checkbox" />
-
-        <CheckBoxPreference
-            android:defaultValue="false"
-            android:key="vibrationSlider"
-            android:summary=""
-            android:title="Slider"
-            app:layout="@layout/settings_preference_checkbox" />
-
-        <CheckBoxPreference
-            android:defaultValue="false"
-            android:key="vibrationSpinner"
-            android:summary=""
-            android:title="Spinner"
-            app:layout="@layout/settings_preference_checkbox" />
-
-        <com.rian.osu.ui.EditableSeekBarPreference
-            android:defaultValue="127"
-            android:key="seekBarVibrateIntensity"
-            android:title="@string/opt_seekBarVibrateIntensity_title"
-            android:summary="@string/opt_seekBarVibrateIntensity_summary"
-            android:min="1"
-            android:max="255"
-            app:showSeekBarValue="true"
-            app:layout="@layout/settings_preference_seekbar_bottom" />
+            android:title="Disable notelock"
+            android:summary="Allow hitting any object regardless of order (0.80x score multiplier)"
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
 
     </PreferenceCategory>
 
@@ -78,7 +49,8 @@
             android:key="fixFrameOffset"
             android:summary="@string/opt_fix_frame_offset_summary"
             android:title="@string/opt_fix_frame_offset_title"
-            app:layout="@layout/settings_preference_checkbox_bottom" />
+            app:layout="@layout/settings_preference_checkbox_bottom"
+        />
 
     </PreferenceCategory>
 

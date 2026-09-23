@@ -30,6 +30,7 @@ object ModUtils {
             ModEasy(),
             ModFlashlight(),
             ModFreezeFrame(),
+            ModGravity(),
             ModHalfTime(),
             ModHardRock(),
             ModHidden(),
@@ -79,7 +80,7 @@ object ModUtils {
     ): String {
         val filteredMods = mods.filter {
             (includeNonUserPlayable || it.isUserPlayable) &&
-            (includeIrrelevantMods || it.isRelevant)
+                    (includeIrrelevantMods || it.isRelevant)
         }
 
         return Json.encodeToString(filteredMods.map { it.toAPIMod() })
@@ -234,8 +235,7 @@ object ModUtils {
         withRateChange: Boolean = false,
         scope: CoroutineScope? = null
     ) {
-        @Suppress("UNCHECKED_CAST")
-        val adjustmentMods = mods.filter { it is IModFacilitatesAdjustment } as Iterable<IModFacilitatesAdjustment>
+        val adjustmentMods = mods.filterIsInstance<IModFacilitatesAdjustment>()
 
         for (mod in mods) {
             scope?.ensureActive()

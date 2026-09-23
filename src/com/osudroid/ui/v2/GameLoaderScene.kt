@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.edlplan.framework.easing.*
 import com.osudroid.data.*
@@ -18,6 +19,7 @@ import com.rian.osu.utils.*
 import kotlin.math.*
 import org.anddev.andengine.input.touch.*
 import ru.nsu.ccfit.zuev.osu.*
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import ru.nsu.ccfit.zuev.osu.game.GameScene
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
 
@@ -353,6 +355,10 @@ class GameLoaderScene(private val gameScene: GameScene, private val beatmapInfo:
 
                         +PreferenceCheckbox("showscoreboard").apply {
                             label = StringTable.get(com.osudroid.resources.R.string.opt_show_scoreboard_title)
+                        }
+
+                        +PreferenceCheckbox("parallaxEnabled").apply {
+                            label = "Parallax"
                         }
                     }
 

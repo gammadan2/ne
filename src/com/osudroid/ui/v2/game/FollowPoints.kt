@@ -1,4 +1,5 @@
 package com.osudroid.ui.v2.game
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
 
 import com.edlplan.framework.easing.*
 import com.osudroid.utils.updateThread
@@ -71,6 +72,9 @@ object FollowPointConnection {
 
     @JvmStatic
     fun addConnection(scene: Scene, secPassed: Float, start: HitObject, end: HitObject) {
+
+        // Gravity mod: hide follow points since objects slide in from different directions
+        if (ru.nsu.ccfit.zuev.osu.game.GameHelper.isGravity()) return
 
         // Reference: https://github.com/ppy/osu/blob/7bc8908ca9c026fed1d831eb6e58df7624a8d614/osu.Game.Rulesets.Osu/Objects/Drawables/Connections/FollowPointConnection.cs
 

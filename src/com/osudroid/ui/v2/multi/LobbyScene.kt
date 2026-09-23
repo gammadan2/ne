@@ -1,5 +1,7 @@
 package com.osudroid.ui.v2.multi
 
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
+
 import android.util.Log
 import com.osudroid.multiplayer.*
 import com.reco1l.andengine.sprite.*
@@ -20,6 +22,7 @@ import ru.nsu.ccfit.zuev.osu.*
 import kotlin.coroutines.cancellation.CancellationException
 import ru.nsu.ccfit.zuev.osu.helper.StringTable
 import ru.nsu.ccfit.zuev.osu.online.OnlineManager
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 
 class LobbyScene : UIScene() {
 
@@ -109,7 +112,8 @@ class LobbyScene : UIScene() {
                             key = "search"
                             width = 500f
                             height = FillParent
-                            placeholder = StringTable.get(ru.nsu.ccfit.zuev.osuplus.R.string.multiplayer_lobby_search_rooms)
+                            placeholder =
+                                StringTable.get(ru.nsu.ccfit.zuev.osuplusplus.R.string.multiplayer_lobby_search_rooms)
                         }
 
                         override fun onValueChanged() {
@@ -282,7 +286,7 @@ class LobbyScene : UIScene() {
         Multiplayer.isMultiplayer = false
         GlobalManager.getInstance().songService.isGaming = false
 
-        GlobalManager.getInstance().mainScene.show()
+        GlobalManager.getInstance().engine.scene = GlobalManager.getInstance().mainScene.scene
     }
 
 

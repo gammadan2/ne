@@ -1,5 +1,7 @@
 package com.osudroid.ui.v2.modmenu
 
+import ru.nsu.ccfit.zuev.osuplusplus.ResourceManager
+
 import com.edlplan.framework.easing.Easing
 import com.osudroid.beatmaps.BeatmapCache
 import com.reco1l.andengine.*
@@ -18,6 +20,7 @@ import com.osudroid.multiplayer.Multiplayer
 import com.osudroid.ui.v2.ModsIndicator
 import com.osudroid.ui.v2.StarRatingBadge
 import com.osudroid.utils.updateThread
+import ru.nsu.ccfit.zuev.osuplusplus.GlobalManager
 import com.reco1l.andengine.component.*
 import com.reco1l.andengine.ui.UITextButton
 import com.reco1l.toolkt.kotlin.*
@@ -32,7 +35,7 @@ import com.rian.osu.utils.ModUtils
 import java.io.IOException
 import kotlinx.coroutines.*
 import ru.nsu.ccfit.zuev.osu.*
-import ru.nsu.ccfit.zuev.osu.DifficultyAlgorithm.*
+import ru.nsu.ccfit.zuev.osuplusplus.DifficultyAlgorithm.*
 import ru.nsu.ccfit.zuev.osu.helper.*
 import java.util.LinkedList
 import java.util.concurrent.CancellationException
@@ -226,7 +229,9 @@ object ModMenu : UIScene() {
 
                     ModType.entries.forEach { type ->
                         val sectionName = StringTable.get(type.stringId)
-                        val sectionToggles = mods.filter { it !is IMigratableMod && it.isUserPlayable && it.type == type }.map { ModMenuToggle(it) }
+                        val sectionToggles =
+                            mods.filter { it !is IMigratableMod && it.isUserPlayable && it.type == type }
+                                .map { ModMenuToggle(it) }
 
                         if (sectionToggles.isEmpty()) {
                             return@forEach
@@ -339,7 +344,10 @@ object ModMenu : UIScene() {
         calculationJob = async scope@{
 
             val difficultyAlgorithm = Config.getDifficultyAlgorithm()
-            val gameMode = if (difficultyAlgorithm == droid) GameMode.Droid else GameMode.Standard
+            val gameMode = when (difficultyAlgorithm) {
+                droid, drpp, rxpp -> GameMode.Droid
+                standard -> GameMode.Standard
+            }
 
             val beatmap = try {
                 BeatmapCache.getBeatmap(selectedBeatmap, true, gameMode, this)
@@ -387,6 +395,8 @@ object ModMenu : UIScene() {
             val attributes = when (difficultyAlgorithm) {
                 droid -> calculateDroidDifficulty(beatmap, mods, this@scope)
                 standard -> calculateStandardDifficulty(beatmap, mods, this@scope)
+                drpp -> calculateDroidDifficulty(beatmap, mods, this@scope)
+                rxpp -> calculateDroidDifficulty(beatmap, mods, this@scope)
             }
 
             ensureActive()
@@ -402,6 +412,9 @@ object ModMenu : UIScene() {
     //region Visibility
 
     override fun show() {
+        // Duck volume when mod menu is opened
+        GlobalManager.getInstance().songService?.volume = Config.getBgmVolume() * 0.3f
+
         GlobalManager.getInstance().engine.scene.setChildScene(
             this,
             false,
@@ -444,6 +457,8 @@ object ModMenu : UIScene() {
             }
         }
 
+        // Restore volume when mod menu is closed
+        GlobalManager.getInstance().songService?.volume = Config.getBgmVolume()
         super.back()
     }
 
@@ -571,9 +586,21 @@ object ModMenu : UIScene() {
             background!!.colorTo(if (isRanked) Color4(0xFF83DF6B) else Theme.current.accentColor * 0.15f, 0.1f)
         }
 
-        modToggles.fastForEach {
-            it.hasIncompatibility =
-                if (!it.isSelected) enabledMods.any { m -> !it.mod.isCompatibleWith(m) } else false
+        val unrestricted = ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("unrestrictedMods", false)
+        modToggles.fastForEach { toggle ->
+            toggle.hasIncompatibility =
+                if (!toggle.isSelected) {
+                    enabledMods.any { m ->
+                        if (unrestricted) {
+                            // Only automation mods are incompatible with each other
+                            toggle.mod.type == com.rian.osu.mods.ModType.Automation &&
+                                    m.type == com.rian.osu.mods.ModType.Automation &&
+                                    !toggle.mod.isCompatibleWith(m)
+                        } else {
+                            !toggle.mod.isCompatibleWith(m)
+                        }
+                    }
+                } else false
         }
 
         scoreMultiplierBadge.updateValue(1f, ModUtils.calculateScoreMultiplier(enabledMods))
@@ -596,7 +623,27 @@ object ModMenu : UIScene() {
         if (mod in enabledMods) {
             return
         }
-        enabledMods.put(mod)
+
+        val unrestricted = ru.nsu.ccfit.zuev.osuplusplus.Config.getBoolean("unrestrictedMods", false)
+        if (unrestricted) {
+            // When unrestricted, only remove incompatible Automation mods
+            val autoMods = enabledMods.filter { (_, m) -> m.type == com.rian.osu.mods.ModType.Automation }
+            for ((_, m) in autoMods) {
+                if (!mod.isCompatibleWith(m)) {
+                    enabledMods.remove(m::class)
+                }
+            }
+            // Check if any existing non-automation mod is incompatible with the new automation mod
+            if (mod.type == com.rian.osu.mods.ModType.Automation) {
+                val toRemove = enabledMods.filter { (_, m) -> !mod.isCompatibleWith(m) }.toList()
+                for ((cls, _) in toRemove) {
+                    enabledMods.remove(cls)
+                }
+            }
+            enabledMods.putWithoutIncompatibilityCheck(mod)
+        } else {
+            enabledMods.put(mod)
+        }
 
         modToggles.fastForEach { button ->
 
@@ -658,11 +705,15 @@ object ModMenu : UIScene() {
             counter.targetValue = finalValue
 
             valueEntity.clearEntityModifiers()
-            valueEntity.colorTo(Color4(when {
-                initialValue < finalValue -> 0xFFF78383
-                initialValue > finalValue -> 0xFF40CF5D
-                else -> 0xFFFFFFFF
-            }), counter.rollingDuration / 1000, counter.rollingEasing)
+            valueEntity.colorTo(
+                Color4(
+                    when {
+                        initialValue < finalValue -> 0xFFF78383
+                        initialValue > finalValue -> 0xFF40CF5D
+                        else -> 0xFFFFFFFF
+                    }
+                ), counter.rollingDuration / 1000, counter.rollingEasing
+            )
         }
 
         override fun onManagedUpdate(deltaTimeSec: Float) {
@@ -678,5 +729,3 @@ object ModMenu : UIScene() {
     //endregion
 
 }
-
-

@@ -7,11 +7,13 @@ import com.rian.osu.utils.CircleSizeCalculator
 /**
  * Represents the Small Circle mod.
  */
-class ModSmallCircle : Mod(), IModApplicableToDifficulty, IMigratableMod {
+class ModSmallCircle : Mod(), IModApplicableToDifficulty {
     override val name = "Small Circle"
     override val acronym = "SC"
     override val description = "Who put ants in my beatmaps?"
     override val type = ModType.DifficultyIncrease
+    override val isRanked = true
+    override val scoreMultiplier = 1.03f
 
     override fun isCompatibleWith(other: Mod): Boolean {
         if (other is ModDifficultyAdjust) {
@@ -20,8 +22,6 @@ class ModSmallCircle : Mod(), IModApplicableToDifficulty, IMigratableMod {
 
         return super.isCompatibleWith(other)
     }
-
-    override fun migrate(difficulty: BeatmapDifficulty) = ModDifficultyAdjust(cs = difficulty.gameplayCS + 4)
 
     override fun applyToDifficulty(
         mode: GameMode,
